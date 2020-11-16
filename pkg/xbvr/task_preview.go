@@ -1,20 +1,18 @@
 package xbvr
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/darwayne/go-timecode/timecode"
 	"github.com/xbapps/xbvr/pkg/common"
 	"github.com/xbapps/xbvr/pkg/config"
+	"github.com/xbapps/xbvr/pkg/ffprobe"
 	"github.com/xbapps/xbvr/pkg/models"
-	"gopkg.in/vansante/go-ffprobe.v2"
 )
 
 func GeneratePreviews() {
@@ -62,22 +60,20 @@ func renderPreview(inputFile string, destFile string, startTime int, snippetLeng
 	defer os.RemoveAll(tmpPath)
 
 	// Get video duration
-	ffprobeReader, err := os.Open(inputFile)
+	ffdata, err := ffprobe.GetProbeData(inputFile, time.Second*3)
 	if err != nil {
 		return err
 	}
+	vs := ffdata.GetFirstVideoStream()
+	dur := ffdata.Format.DurationSeconds
 
-	ffdata, err := ffprobe.ProbeReader(context.Background(), ffprobeReader)
-	if err != nil {
-		return err
+	crop := "iw/2:ih:iw/2:ih" // LR videos
+	if vs.Height == vs.Width {
+		crop = "iw/2:ih/2:iw/4:ih/2" // TB videos
 	}
-	vs := ffdata.FirstVideoStream()
-	dur, err := strconv.ParseFloat(vs.Duration, 64)
-	if err != nil {
-		return err
-	}
-
-	vfArgs := fmt.Sprintf("crop=in_w/2:in_h:in_w/2:in_h,scale=%v:%v", resolution, resolution)
+	// Mono 360 crop args: (no way of accurately determining)
+	// "iw/2:ih:iw/4:ih"
+	vfArgs := fmt.Sprintf("crop=%v,scale=%v:%v", crop, resolution, resolution)
 
 	// Prepare snippets
 	interval := dur/float64(snippetAmount) - float64(startTime)
@@ -136,9 +132,9 @@ func renderPreview(inputFile string, destFile string, startTime int, snippetLeng
 		"-y",
 		"-f", "concat",
 		"-safe", "0",
-		"-i", concatFile,
+		"-i", filepath.ToSlash(concatFile),
 		"-c", "copy",
-		destFile,
+		filepath.ToSlash(destFile),
 	}
 	err = exec.Command(GetBinPath("ffmpeg"), cmd...).Run()
 	if err != nil {

@@ -43,32 +43,49 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 		})
 
 		// Duration
-		e.ForEach(`div.duration-ratings div.duration`, func(id int, e *colly.HTMLElement) {
-			tmpDuration, err := strconv.Atoi(strings.Replace(strings.Replace(e.Text, "Duration: ", "", -1), " min", "", -1))
+		e.ForEach(`div.date-tags div.duration`, func(id int, e *colly.HTMLElement) {
+			r := strings.NewReplacer("|", "", "min", "")
+			tmpDuration, err := strconv.Atoi(strings.TrimSpace(r.Replace(e.Text)))
 			if err == nil {
 				sc.Duration = tmpDuration
 			}
 		})
 
-		// Filenames
-		e.ForEach(`a.play-trailer img.start-card`, func(id int, e *colly.HTMLElement) {
+		// Filenames & Covers
+		// There's a different video element for the four most recent scenes
+		// New video element
+		e.ForEach(`dl8-video`, func(id int, e *colly.HTMLElement) {
 			// images5.naughtycdn.com/cms/nacmscontent/v1/scenes/2cst/nikkijaclynmarco/scene/horizontal/1252x708c.jpg
-			base := strings.Split(strings.Replace(e.Attr("data-src"), "//", "", -1), "/")
+			base := strings.Split(strings.Replace(e.Attr("poster"), "//", "", -1), "/")
 			baseName := base[5] + base[6]
+			defaultBaseName := "nam" + base[6]
 
 			filenames := []string{"_180x180_3dh.mp4", "_smartphonevr60.mp4", "_smartphonevr30.mp4", "_vrdesktopsd.mp4", "_vrdesktophd.mp4", "_180_sbs.mp4", "_180x180_3dh.mp4"}
 
 			for i := range filenames {
-				filenames[i] = baseName + filenames[i]
+				sc.Filenames = append(sc.Filenames, baseName + filenames[i], defaultBaseName + filenames[i])
 			}
 
-			sc.Filenames = filenames
-		})
+			base[8] = "horizontal"
+			base[9] = "1182x777c.jpg"
+			sc.Covers = append(sc.Covers, "https://"+strings.Join(base, "/"))
 
-		// Cover URLs
+			base[8] = "vertical"
+			base[9] = "1182x1788c.jpg"
+			sc.Covers = append(sc.Covers, "https://"+strings.Join(base, "/"))
+		})
+		// Old video element
 		e.ForEach(`a.play-trailer img.start-card`, func(id int, e *colly.HTMLElement) {
 			// images5.naughtycdn.com/cms/nacmscontent/v1/scenes/2cst/nikkijaclynmarco/scene/horizontal/1252x708c.jpg
-			base := strings.Split(strings.Replace(e.Attr("data-src"), "//", "", -1), "/")
+			base := strings.Split(strings.Replace(e.Attr("src"), "//", "", -1), "/")
+			baseName := base[5] + base[6]
+			defaultBaseName := "nam" + base[6]
+
+			filenames := []string{"_180x180_3dh.mp4", "_smartphonevr60.mp4", "_smartphonevr30.mp4", "_vrdesktopsd.mp4", "_vrdesktophd.mp4", "_180_sbs.mp4", "_180x180_3dh.mp4"}
+
+			for i := range filenames {
+				sc.Filenames = append(sc.Filenames, baseName + filenames[i], defaultBaseName + filenames[i])
+			}
 
 			base[8] = "horizontal"
 			base[9] = "1182x777c.jpg"
@@ -80,7 +97,7 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 		})
 
 		// Gallery
-		e.ForEach(`div.contain-scene-images.desktop-only a`, func(id int, e *colly.HTMLElement) {
+		e.ForEach(`div.contain-scene-images.desktop-only a.thumbnail`, func(id int, e *colly.HTMLElement) {
 			if id > 0 {
 				sc.Gallery = append(sc.Gallery, strings.Replace(e.Request.AbsoluteURL(e.Attr("href")), "dynamic", "", -1))
 			}

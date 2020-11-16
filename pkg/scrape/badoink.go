@@ -77,7 +77,8 @@ func BadoinkSite(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 
 		// Duration
 		e.ForEach(`p.video-duration`, func(id int, e *colly.HTMLElement) {
-			tmpDuration, err := strconv.Atoi(strings.Split(e.Attr("content"), ":")[1])
+			content := strings.Replace(strings.Split(e.Attr("content"), "M")[0], "PT", "", -1)
+			tmpDuration, err := strconv.Atoi(content)
 			if err == nil {
 				sc.Duration = tmpDuration
 			}
@@ -99,7 +100,7 @@ func BadoinkSite(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 				fragmentName := strings.Split(fpName, "/")
 				baseName := fragmentName[len(fragmentName)-1]
 
-				filenames := []string{"samsung_180_180x180_3dh_LR", "oculus_180_180x180_3dh_LR", "mobile_180_180x180_3dh_LR", "5k_180_180x180_3dh_LR"}
+				filenames := []string{"samsung_180_180x180_3dh_LR", "oculus_180_180x180_3dh_LR", "mobile_180_180x180_3dh_LR", "5k_180_180x180_3dh_LR", "4k_HEVC_180_180x180_3dh_LR", "ps4_180_sbs", "ps4_pro_180_sbs"}
 
 				for i := range filenames {
 					filenames[i] = baseName + "_" + filenames[i] + ".mp4"

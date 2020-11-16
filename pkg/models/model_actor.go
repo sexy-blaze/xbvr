@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/jinzhu/gorm"
 )
 
@@ -38,8 +39,22 @@ func (i *Actor) Save() error {
 	db, _ := GetDB()
 	defer db.Close()
 
-	err := db.Save(i).Error
-	return err
+	var err error
+	err = retry.Do(
+		func() error {
+			err := db.Save(&i).Error
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	)
+
+	if err != nil {
+		log.Fatal("Failed to save ", err)
+	}
+
+	return nil
 }
 
 func ResolveActorAliases() error {

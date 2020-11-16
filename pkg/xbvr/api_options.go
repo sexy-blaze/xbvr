@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
+	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/putdotio/go-putio/putio"
@@ -38,6 +37,11 @@ type VersionCheckResponse struct {
 	UpdateNotify   bool   `json:"update_notify"`
 }
 
+type RequestSaveOptionsWeb struct {
+	TagSort      string   `json:"tagSort"`
+	SceneEdit    bool     `json:"sceneEdit"`
+}
+
 type RequestSaveOptionsDLNA struct {
 	Enabled      bool     `json:"enabled"`
 	ServiceName  string   `json:"name"`
@@ -56,6 +60,10 @@ type RequestSaveOptionsPreviews struct {
 
 type GetStateResponse struct {
 	CurrentState struct {
+		Web struct {
+			TagSort   string  `json:"tagSort"`
+			SceneEdit bool    `json:"sceneEdit"`
+		} `json:"web"`
 		DLNA struct {
 			Running  bool     `json:"running"`
 			Images   []string `json:"images"`
@@ -115,6 +123,10 @@ func (i ConfigResource) WebService() *restful.WebService {
 	ws.Route(ws.PUT("/interface/dlna").To(i.saveOptionsDLNA).
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
+	// "Web UI" section endpoints
+	ws.Route(ws.PUT("/interface/web").To(i.saveOptionsWeb).
+		Metadata(restfulspec.KeyOpenAPITags, tags))
+
 	// "Cache" section endpoints
 	ws.Route(ws.DELETE("/cache/reset/{cache}").To(i.resetCache).
 		Param(ws.PathParameter("cache", "Cache to reset").DataType("string")).
@@ -131,11 +143,11 @@ func (i ConfigResource) WebService() *restful.WebService {
 }
 
 func (i ConfigResource) versionCheck(req *restful.Request, resp *restful.Response) {
-	out := VersionCheckResponse{LatestVersion: currentVersion, CurrentVersion: currentVersion, UpdateNotify: false}
+	out := VersionCheckResponse{LatestVersion: common.CurrentVersion, CurrentVersion: common.CurrentVersion, UpdateNotify: false}
 
-	if currentVersion != "CURRENT" {
+	if common.CurrentVersion != "CURRENT" {
 		r, err := resty.R().
-			SetHeader("User-Agent", "XBVR/"+currentVersion).
+			SetHeader("User-Agent", "XBVR/"+common.CurrentVersion).
 			Get("https://updates.xbvr.app/latest.json")
 		if err != nil || r.StatusCode() != 200 {
 			resp.WriteHeaderAndEntity(http.StatusOK, out)
@@ -145,9 +157,7 @@ func (i ConfigResource) versionCheck(req *restful.Request, resp *restful.Respons
 		out.LatestVersion = gjson.Get(r.String(), "latestVersion").String()
 
 		// Decide if UI notification is needed
-		sLatest := semver.MustParse(out.LatestVersion)
-		sCurrent := semver.MustParse(currentVersion)
-		if sLatest.GT(sCurrent) {
+		if out.LatestVersion != common.CurrentVersion {
 			out.UpdateNotify = true
 		}
 	}
@@ -186,6 +196,21 @@ func (i ConfigResource) toggleSite(req *restful.Request, resp *restful.Response)
 	var sites []models.Site
 	db.Order("name asc").Find(&sites)
 	resp.WriteHeaderAndEntity(http.StatusOK, sites)
+}
+
+func (i ConfigResource) saveOptionsWeb(req *restful.Request, resp *restful.Response) {
+	var r RequestSaveOptionsWeb
+	err := req.ReadEntity(&r)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	config.Config.Web.TagSort = r.TagSort
+	config.Config.Web.SceneEdit = r.SceneEdit
+	config.SaveConfig()
+
+	resp.WriteHeaderAndEntity(http.StatusOK, r)
 }
 
 func (i ConfigResource) listStorage(req *restful.Request, resp *restful.Response) {
@@ -349,6 +374,10 @@ func (i ConfigResource) deleteScenes(req *restful.Request, resp *restful.Respons
 func (i ConfigResource) getState(req *restful.Request, resp *restful.Response) {
 	var out GetStateResponse
 	out.Config = config.Config
+
+	// Preferences
+	out.CurrentState.Web.TagSort = config.Config.Web.TagSort
+	out.CurrentState.Web.SceneEdit = config.Config.Web.SceneEdit
 
 	// DLNA
 	out.CurrentState.DLNA.Running = IsDMSStarted()

@@ -1,6 +1,7 @@
 <template>
   <div class="modal is-active">
     <GlobalEvents
+      :filter="e => !['INPUT', 'TEXTAREA'].includes(e.target.tagName)"
       @keyup.esc="close"
       @keydown.arrowLeft="playerStepBack"
       @keydown.arrowRight="playerStepForward"
@@ -8,6 +9,7 @@
       @keydown.p="nextScene"
       @keydown.f="$store.commit('sceneList/toggleSceneList', {scene_id: item.scene_id, list: 'favourite'})"
       @keydown.w="$store.commit('sceneList/toggleSceneList', {scene_id: item.scene_id, list: 'watchlist'})"
+      @keydown.e="$store.commit('overlay/editDetails', {scene: item.scene})"
       @keydown.g="toggleGallery"
     />
 
@@ -64,7 +66,8 @@
                   <div class="column">
                     <div class="is-pulled-right">
                       <watchlist-button :item="item"/>&nbsp;
-                      <favourite-button :item="item"/>
+                      <favourite-button :item="item"/>&nbsp;
+                      <edit-button :item="item" />
                     </div>
                   </div>
                 </div>
@@ -126,8 +129,12 @@
                       </div>
                       <div class="media-content" style="overflow-wrap: break-word;">
                         <strong>{{f.filename}}</strong><br/>
-                        <small>{{prettyBytes(f.size)}}, {{f.video_width}}x{{f.video_height}},
-                          {{format(parseISO(f.created_time), "yyyy-MM-dd")}}</small>
+                        <small>
+                          <span class="pathDetails">{{f.path}}</span>
+                          <br/>
+                          {{prettyBytes(f.size)}}, {{f.video_width}}x{{f.video_height}},
+                          {{format(parseISO(f.created_time), "yyyy-MM-dd")}}
+                        </small>
                       </div>
                       <div class="media-right">
                         <button class="button is-danger is-small is-outlined" @click='removeFile(f)'>
@@ -181,6 +188,14 @@
                   </div>
                 </b-tab-item>
 
+                <b-tab-item label="Description">
+                  <div class="block-tab-content block">
+                    <b-message>
+                      {{ item.synopsis }}
+                    </b-message>
+                  </div>
+                </b-tab-item>
+
               </b-tabs>
             </div>
 
@@ -207,10 +222,11 @@
   import StarRating from 'vue-star-rating';
   import FavouriteButton from "../../components/FavouriteButton";
   import WatchlistButton from "../../components/WatchlistButton";
+  import EditButton from "../../components/EditButton";
 
   export default {
     name: "Details",
-    components: {VueLoadImage, GlobalEvents, StarRating, WatchlistButton, FavouriteButton},
+    components: {VueLoadImage, GlobalEvents, StarRating, WatchlistButton, FavouriteButton, EditButton},
     data() {
       return {
         index: 1,
@@ -226,7 +242,11 @@
     },
     computed: {
       item() {
-        return this.$store.state.overlay.details.scene;
+        const item = this.$store.state.overlay.details.scene;
+        if (this.$store.state.optionsWeb.web.tagSort === 'alphabetically') {
+          item.tags.sort((a, b) => a.name < b.name ? -1 : 1);
+        }
+        return item;
       },
       // Properties for gallery
       images() {
@@ -263,6 +283,9 @@
         }
         return 0;
       },
+      showEdit() {
+        return this.$store.state.overlay.edit.show;
+      }
     },
     mounted() {
       this.setupPlayer();
@@ -550,5 +573,9 @@
 
   span.is-active img {
     border: 2px;
+  }
+
+  .pathDetails {
+    color: #b0b0b0;
   }
 </style>

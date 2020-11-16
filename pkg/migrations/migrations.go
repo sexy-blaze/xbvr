@@ -143,17 +143,16 @@ func Migrate() {
 				return db.Where("site = ?", "VRCONK").Delete(&models.Scene{}).Error
 			},
 		},
-		// version next
 		{
-			ID: "0008",
+			ID: "0008-create-playlist-table",
 			Migrate: func(tx *gorm.DB) error {
 				type Playlist struct {
-					ID        uint `gorm:"primary_key"`
+					ID uint `gorm:"primary_key"`
 
 					CreatedAt time.Time
 					UpdatedAt time.Time
 
-					Name         string
+					Name string
 
 					Ordering     int
 					IsSystem     bool
@@ -162,22 +161,6 @@ func Migrate() {
 					SearchParams string `sql:"type:text;"`
 				}
 				return tx.AutoMigrate(Playlist{}).Error
-			},
-		},
-		{
-			// 	TODO: remove before merging PR
-			ID: "0008-dev-add-ordering",
-			Migrate: func(tx *gorm.DB) error {
-				var playlists []models.Playlist
-				tx.Model(&playlists).Find(&playlists)
-
-				for i := range playlists {
-					if playlists[i].Ordering < 1 {
-						playlists[i].Ordering = int(playlists[i].ID)
-						playlists[i].Save()
-					}
-				}
-				return nil
 			},
 		},
 		{
@@ -273,13 +256,13 @@ func Migrate() {
 				return nil
 			},
 		},
-    {
+		{
 			ID: "0012-model-scraper",
 			Migrate: func(tx *gorm.DB) error {
 				type Scene struct{}
 				type Actor struct {
-					ID        uint
-          Scenes       []Scene
+					ID           uint
+					Scenes       []Scene
 					ActorID      string
 					Aliases      *string `sql:"type:text;"`
 					Bio          string
@@ -300,8 +283,71 @@ func Migrate() {
 					Count        int
 				}
 				return tx.AutoMigrate(Actor{}).Error
-      }
-    },
+			},
+		},
+		{
+			ID: "0012-preview-flag",
+			Migrate: func(tx *gorm.DB) error {
+				type Scene struct {
+					TotalFileSize int64 `json:"total_file_size" gorm:"default:0"`
+				}
+				return tx.AutoMigrate(Scene{}).Error
+			},
+		},
+		{
+			// WetVR has changed scene numbering schema, so it needs to be flushed
+			ID: "0013-flush-wetvr",
+			Migrate: func(tx *gorm.DB) error {
+				var scenes []models.Scene
+				db.Where("site = ?", "WetVR").Find(&scenes)
+
+				for _, obj := range scenes {
+					files, _ := obj.GetFiles()
+					for _, file := range files {
+						file.SceneID = 0
+						file.Save()
+					}
+				}
+
+				return db.Where("site = ?", "WetVR").Delete(&models.Scene{}).Error
+			},
+		},
+		{
+			// Migrate EvilEyeVR to VRPorn scraper. Will cause new scene IDs
+			ID: "0014-evileye-to-vrporn",
+			Migrate: func(tx *gorm.DB) error {
+				var scenes []models.Scene
+				db.Where("site = ?", "EvilEyeVR").Find(&scenes)
+
+				for _, obj := range scenes {
+					files, _ := obj.GetFiles()
+					for _, file := range files {
+						file.SceneID = 0
+						file.Save()
+					}
+				}
+
+				return db.Where("site = ?", "EvilEyeVR").Delete(&models.Scene{}).Error
+			},
+		},
+		{
+			ID: "0015-scene-edits",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&models.Action{}).Error
+			},
+		},
+		{
+			ID: "0016-action-value-size",
+			Migrate: func(tx *gorm.DB) error {
+				if models.GetDBConn().Driver == "mysql" {
+					tx.Model(&models.Action{}).Exec("RENAME TABLE actions TO actions_old")
+				} else {
+					tx.Model(&models.Action{}).Exec("ALTER TABLE actions RENAME TO actions_old")
+				}
+				tx.AutoMigrate(&models.Action{})
+				return tx.Model(&models.Action{}).Exec("INSERT INTO actions SELECT * FROM actions_old").Error
+			},
+		},
 	})
 
 	if err := m.Migrate(); err != nil {

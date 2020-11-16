@@ -6,9 +6,12 @@ import (
 )
 
 var (
-	DEBUG         = os.Getenv("DEBUG")
-	SQLITE_PARAMS = os.Getenv("SQLITE_PARAMS")
-	WsAddr        = "0.0.0.0:9998"
+	DEBUG             = os.Getenv("DEBUG")
+	DISABLE_ANALYTICS = os.Getenv("DISABLE_ANALYTICS")
+	SQL_DEBUG         = envToBool("SQL_DEBUG", false)
+	DATABASE_URL      = ""
+	WsAddr            = "0.0.0.0:9998"
+	CurrentVersion    = ""
 )
 
 func envToBool(envVar string, defaultVal bool) bool {
@@ -22,4 +25,11 @@ func envToBool(envVar string, defaultVal bool) bool {
 	} else {
 		return defaultVal
 	}
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }

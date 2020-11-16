@@ -21,6 +21,10 @@ func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 	sceneCollector := createCollector("www.sexlikereal.com")
 	siteCollector := createCollector("www.sexlikereal.com")
 
+	// RegEx Patterns
+	coverRegEx := regexp.MustCompile(`background(?:-image)?\s*?:\s*?url\s*?\(\s*?(.*?)\s*?\)`)
+	durationRegEx := regexp.MustCompile(`^T(\d{0,2})H?(\d{2})M(\d{2})S$`)
+
 	sceneCollector.OnHTML(`html`, func(e *colly.HTMLElement) {
 		sc := models.ScrapedScene{}
 		sc.SceneType = "VR"
@@ -31,11 +35,10 @@ func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 		// Scene ID - get from URL
 		tmp := strings.Split(sc.HomepageURL, "-")
 		sc.SiteID = tmp[len(tmp)-1]
-		sc.SceneID = slugify.Slugify(sc.Site) + "-" + sc.SiteID
+		sc.SceneID = slugify.Slugify(scraperID) + "-" + sc.SiteID
 
 		// Cover
-		re := regexp.MustCompile(`background(?:-image)?\s*?:\s*?url\s*?\(\s*?(.*?)\s*?\)`)
-		coverURL := re.FindStringSubmatch(strings.TrimSpace(e.ChildAttr(`.splash-screen`, "style")))[1]
+		coverURL := coverRegEx.FindStringSubmatch(strings.TrimSpace(e.ChildAttr(`.splash-screen`, "style")))[1]
 		if len(coverURL) > 0 {
 			sc.Covers = append(sc.Covers, coverURL)
 		}
@@ -46,11 +49,8 @@ func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 		})
 
 		// Synopsis
-		e.ForEach(`div#tabs-about div.u-mb--four`, func(id int, e *colly.HTMLElement) {
-			if !strings.Contains(e.Text, "Released:") {
-				sc.Synopsis = strings.TrimSpace(e.Text)
-			}
-		})
+		sc.Synopsis = strings.TrimSpace(
+			e.DOM.Find(`div#tabs-about div.u-mb--four`).First().Text())
 
 		// Skipping some very generic and useless tags
 		skiptags := map[string]bool{
@@ -100,10 +100,9 @@ func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 			// Duration
 			// NOTE: SLR fails to include hours (1h55m30s shows up as T55M30S)
 			// ...but this is ready for the format of T01H55M30S should SLR fix that
-			reGetDuration := regexp.MustCompile(`^T(\d{0,2})H?(\d{2})M(\d{2})S$`)
 			duration := 0
 			if gjson.Get(JsonMetadata, "duration").Exists() {
-				tmpParts := reGetDuration.FindStringSubmatch(gjson.Get(JsonMetadata, "duration").String())
+				tmpParts := durationRegEx.FindStringSubmatch(gjson.Get(JsonMetadata, "duration").String())
 				if len(tmpParts[1]) > 0 {
 					if h, err := strconv.Atoi(tmpParts[1]); err == nil {
 						hrs := h
@@ -169,86 +168,44 @@ func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 	return nil
 }
 
-// SLR Originals - SexLikeReal own productions
-func SLROriginals(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "slr-originals", "SLR Originals", "SexLikeReal")
-}
-
-// iStripper - Has a site for 2D desktop app, but doesn't even mention they do VR scenes: https://www.istripper.com/
-func iStripper(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "istripper", "iStripper", "TotemCore Ltd")
-}
-
-// EmilyBloom - does have vertical covers on her site but no scene info to scrape: https://theemilybloom.com/virtual-reality/
-func EmilyBloom(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "emilybloom", "EmilyBloom", "Emily Bloom")
-}
-
-// VRSexperts - does have large covers on their blog but they appear very delayed: http://www.vrsexperts.com/
-func VRSexperts(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "vrsexperts", "VRSexperts", "VRSexperts")
-}
-
-// VReXtasy - Can't find a site/twitter at all
-func VReXtasy(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "vrextasy", "VReXtasy", "VReXtasy")
-}
-
-// VRSolos - https://twitter.com/VRsolos/
-func VRSolos(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "vrsolos", "VRSolos", "VRSolos")
-}
-
-// Jimmy Draws - https://twitter.com/ukpornmaker
-func JimmyDraws(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "jimmydraws", "JimmyDraws", "Jimmy Draws")
-}
-
-// POVcentralVR - Has a site with mixed 2D/VR content, doesn't seem very scrapeable: http://povcentral.com/home.html
-// Does have a blog for VR scenes but no useful covers: http://blog.povcentralmembers.com/category/3d/
-func POVcentralVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "povcentralvr", "POVcentralVR", "POV Central")
-}
-
-// OnlyTease - Has a site for their 2D scenes, only started doing VR since Oct 2019: https://www.onlytease.com/
-func OnlyTease(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "onlytease", "OnlyTease", "OT Publishing Ltd")
-}
-
-// perVRt/Terrible - Likely to change to Terrible brand, is working on their own website here: http://terrible.porn/
-// Publishes on SLR as perVRt, includes brands: Juggs, Babygirl, Sappho
-// https://twitter.com/terribledotporn & https://twitter.com/perVRtPORN
-func perVRt(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "pervrt", "perVRt", "Terrible")
-}
-
-// LeninaCrowne - Wife of https://twitter.com/DickTerrible from the perVRt/Terrible Studio.
-func LeninaCrowne(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "leninacrowne", "LeninaCrowne", "Terrible")
-}
-
-// StripzVR.com doesn't have pagination or a model/scene index that's scrapeable
-func StripzVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "stripzvr", "StripzVR", "N1ck Inc.")
-}
-
-// RealHotVR.com doesn't have complete scene index, pagination stops after two pages
-func RealHotVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
-	return SexLikeReal(wg, updateSite, knownScenes, out, "realhotvr", "RealHotVR", "RealHotVR")
+func addSLRScraper(id string, name string, company string, avatarURL string) {
+	suffixedName := name
+	if company != "SexLikeReal" {
+		suffixedName += " (SLR)"
+	}
+	registerScraper(id, suffixedName, avatarURL, func(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene) error {
+		return SexLikeReal(wg, updateSite, knownScenes, out, id, name, company)
+	})
 }
 
 func init() {
-	registerScraper("slr-originals", "SLR Originals", "https://www.sexlikereal.com/s/refactor/images/favicons/android-icon-192x192.png", SLROriginals)
-	registerScraper("istripper", "iStripper (SLR)", "https://www.istripper.com/favicons/istripper/apple-icon-120x120.png", iStripper)
-	registerScraper("emilybloom", "EmilyBloom (SLR)", "https://theemilybloom.com/wp-content/uploads/2017/05/FlowerHeaderLogo.png", EmilyBloom)
-	registerScraper("vrsexperts", "VRSexperts (SLR)", "https://mcdn.vrporn.com/files/20190812141431/vrsexpertslogo2.jpg", VRSexperts)
-	registerScraper("vrextasy", "VReXtasy (SLR)", "https://www.sexlikereal.com/s/refactor/images/favicons/android-icon-192x192.png", VReXtasy)
-	registerScraper("vrsolos", "VRSolos (SLR)", "https://mcdn.vrporn.com/files/20191226092954/VRSolos_Logo.jpg", VRSolos)
-	registerScraper("jimmydraws", "JimmyDraws (SLR)", "https://mcdn.vrporn.com/files/20190821145930/iLPJW6J7_400x400.png", JimmyDraws)
-	registerScraper("povcentralvr", "POVcentralVR (SLR)", "https://mcdn.vrporn.com/files/20191125091909/POVCentralLogo.jpg", POVcentralVR)
-	registerScraper("onlytease", "OnlyTease (SLR)", "https://www.onlytease.com/assets/img/favicons/ot/apple-touch-icon.png", OnlyTease)
-	registerScraper("pervrt", "perVRt/Terrible (SLR)", "https://mcdn.vrporn.com/files/20181218151630/pervrt-logo.jpg", perVRt)
-	registerScraper("leninacrowne", "LeninaCrowne (SLR)", "https://mcdn.vrporn.com/files/20190711135807/terrible_logo-e1562878668857_400x400_acf_cropped.jpg", LeninaCrowne)
-	registerScraper("stripzvr", "StripzVR (SLR)", "https://www.stripzvr.com/wp-content/uploads/2018/09/cropped-favicon-192x192.jpg", StripzVR)
-	registerScraper("realhotvr", "RealHotVR (SLR)", "https://g8iek4luc8.ent-cdn.com/templates/realhotvr/images/favicon.jpg", RealHotVR)
+	addSLRScraper("slr-originals", "SLR Originals", "SexLikeReal", "https://www.sexlikereal.com/s/refactor/images/favicons/android-icon-192x192.png")
+
+	addSLRScraper("ad4x", "AD4X", "AD4X", "https://ad4x.com/ypp_theme_ad4x/images/logo.png")
+	addSLRScraper("amateurvr3d", "AmateurVR3D", "AmateurVR3D", "http://amateurvr3d.com/assets/images/Nx50xlogo.png.pagespeed.ic.mr8RC-ybPl.webp")
+	addSLRScraper("bravomodelsmedia", "BravoModelsMedia", "Bravo Models", "https://mcdn.vrporn.com/files/20181015142403/ohNFa81Q_400x400.png")
+	addSLRScraper("burningangelvr", "BurningAngelVR", "BurningAngelVR", "https://mcdn.vrporn.com/files/20170830191746/burningangel-icon-vr-porn-studio-vrporn.com-virtual-reality.png")
+	addSLRScraper("emilybloom", "EmilyBloom", "Emily Bloom", "https://theemilybloom.com/wp-content/uploads/2017/05/FlowerHeaderLogo.png")
+	addSLRScraper("herfirstvr", "HerFirstVR", "HerFirstVR", "https://www.sexlikereal.com/s/refactor/images/favicons/android-icon-192x192.png")
+	addSLRScraper("holivr", "HoliVR", "HoliVR", "https://mcdn.vrporn.com/files/20170519145416/Holi_400x400.jpg")
+	addSLRScraper("istripper", "iStripper", "TotemCore Ltd", "https://www.istripper.com/favicons/istripper/apple-icon-120x120.png")
+	addSLRScraper("jimmydraws", "JimmyDraws", "Jimmy Draws", "https://mcdn.vrporn.com/files/20190821145930/iLPJW6J7_400x400.png")
+	addSLRScraper("leninacrowne", "LeninaCrowne", "Terrible", "https://mcdn.vrporn.com/files/20190711135807/terrible_logo-e1562878668857_400x400_acf_cropped.jpg")
+	addSLRScraper("lustreality", "LustReality", "LustReality", "https://mcdn.vrporn.com/files/20200316102952/lustreality_logo2.png")
+	addSLRScraper("mmm100", "MMM100", "MMM100", "https://mmm100.com/MMM100.png")
+	addSLRScraper("only3xvr", "Only3xVR", "Only3xVR", "https://mcdn.vrporn.com/files/20190821140339/only3xvr-profile-pic.jpg")
+	addSLRScraper("onlytease", "OnlyTease", "OT Publishing Ltd", "https://www.onlytease.com/assets/img/favicons/ot/apple-touch-icon.png")
+	addSLRScraper("pervrt", "perVRt/Terrible", "Terrible", "https://mcdn.vrporn.com/files/20181218151630/pervrt-logo.jpg")
+	addSLRScraper("povcentralvr", "POVcentralVR", "POV Central", "https://mcdn.vrporn.com/files/20191125091909/POVCentralLogo.jpg")
+	addSLRScraper("pvrstudio", "PVRStudio", "PVRStudio", "https://pvr.fun/uploads/2019/10/08/084230gbctdepe7kovu4hs.jpg")
+	addSLRScraper("realhotvr", "RealHotVR", "RealHotVR", "https://g8iek4luc8.ent-cdn.com/templates/realhotvr/images/favicon.jpg")
+	addSLRScraper("screwboxvr", "ScrewBoxVR", "ScrewBox", "https://pbs.twimg.com/profile_images/1137432770936918016/ycL3ag5c_200x200.png")
+	addSLRScraper("stockingsvr", "StockingsVR", "StockingsVR", "https://mcdn.vrporn.com/files/20171107092330/stockingsvr_logo_vr_porn_studio_vrporn.com_virtual_reality1-1.png")
+	addSLRScraper("stripzvr", "StripzVR", "N1ck Inc.", "https://www.stripzvr.com/wp-content/uploads/2018/09/cropped-favicon-192x192.jpg")
+	addSLRScraper("tadpolexxxstudio", "TadPoleXXXStudio", "TadPoleXXXStudio", "https://mcdn.vrporn.com/files/20190928101126/tadpolexxx-logo-vr-porn-studio-vrporn.com-virtual-reality.png")
+	addSLRScraper("vrsexperts", "VRSexperts", "VRSexperts", "https://mcdn.vrporn.com/files/20190812141431/vrsexpertslogo2.jpg")
+	addSLRScraper("vrsolos", "VRSolos", "VRSolos", "https://mcdn.vrporn.com/files/20191226092954/VRSolos_Logo.jpg")
+	addSLRScraper("vrextasy", "VReXtasy", "VReXtasy", "https://www.sexlikereal.com/s/refactor/images/favicons/android-icon-192x192.png")
+	addSLRScraper("vredging", "VRedging", "VRedging", "https://mcdn.vrporn.com/files/20200630081500/VRedging_LOGO_v1-400x400.jpg")
+	addSLRScraper("virtualxporn", "VirtualXPorn", "VirtualXPorn", "https://www.virtualxporn.com/tour/custom_assets/favicons/android-chrome-192x192.png")
 }

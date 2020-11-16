@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/xbapps/xbvr/pkg/analytics"
 	"github.com/xbapps/xbvr/pkg/config"
 	"golang.org/x/crypto/bcrypt"
 
@@ -32,13 +33,12 @@ import (
 )
 
 var (
-	DEBUG          = common.DEBUG
-	DEOPASSWORD    = os.Getenv("DEO_PASSWORD")
-	DEOUSER        = os.Getenv("DEO_USERNAME")
-	UIPASSWORD     = os.Getenv("UI_PASSWORD")
-	UIUSER         = os.Getenv("UI_USERNAME")
-	wsAddr         = common.WsAddr
-	currentVersion = ""
+	DEBUG       = common.DEBUG
+	DEOPASSWORD = os.Getenv("DEO_PASSWORD")
+	DEOUSER     = os.Getenv("DEO_USERNAME")
+	UIPASSWORD  = os.Getenv("UI_PASSWORD")
+	UIUSER      = os.Getenv("UI_USERNAME")
+	wsAddr      = common.WsAddr
 )
 
 func uiAuthEnabled() bool {
@@ -72,11 +72,14 @@ func authHandle(pattern string, authEnabled bool, authSecret auth.SecretProvider
 }
 
 func StartServer(version, commit, branch, date string) {
-	currentVersion = version
+	common.CurrentVersion = version
 
 	config.LoadConfig()
 
+	// First setup
 	migrations.Migrate()
+	analytics.GenerateID()
+	analytics.Event("app-start", nil)
 
 	// Remove old locks
 	models.RemoveLock("index")
@@ -104,7 +107,7 @@ func StartServer(version, commit, branch, date string) {
 	restful.Add(FilesResource{}.WebService())
 	restful.Add(SceneResource{}.WebService())
 	restful.Add(TaskResource{}.WebService())
-	restful.Add(SecurityResource{}.WebService())
+	// restful.Add(SecurityResource{}.WebService())
 	restful.Add(PlaylistResource{}.WebService())
 
 	restConfig := restfulspec.Config{
@@ -119,7 +122,7 @@ func StartServer(version, commit, branch, date string) {
 			swo.Info = &spec.Info{
 				InfoProps: spec.InfoProps{
 					Title:   "XBVR API",
-					Version: currentVersion,
+					Version: common.CurrentVersion,
 				},
 				VendorExtensible: e,
 			}
@@ -224,7 +227,7 @@ func StartServer(version, commit, branch, date string) {
 	log.Infof("Web UI available at %s", strings.Join(ips, ", "))
 	log.Infof("Web UI Authentication enabled: %v", uiAuthEnabled())
 	log.Infof("DeoVR Authentication enabled: %v", deoAuthEnabled())
-	log.Infof("Database file stored at %s", common.AppDir)
+	log.Infof("Using database: %s", common.DATABASE_URL)
 
 	httpAddr := fmt.Sprintf("%v:%v", config.Config.Server.BindAddress, config.Config.Server.Port)
 	if DEBUG == "" {
