@@ -13,7 +13,7 @@
       @keydown.g="toggleGallery"
     />
 
-    <div class="modal-background"></div>
+    <div class="modal-background" @click='close()'></div>
 
     <div class="modal-card">
       <section class="modal-card-body">
@@ -366,9 +366,11 @@
         this.player.play();
       },
       playFile(file) {
-        this.activeMedia = 1;
-        this.updatePlayer("/api/dms/file/" + file.id + "?dnt=1", "180");
-        this.player.play();
+        console.log("play file", encodeURIComponent(`${file.path}\\${file.filename}`));
+        ky.get(`/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`);
+        // this.activeMedia = 1;
+        // this.updatePlayer("/api/dms/file/" + file.id + "?dnt=1", "180");
+        // this.player.play();
       },
       removeFile(file) {
         this.$buefy.dialog.confirm({
