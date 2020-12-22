@@ -41,7 +41,7 @@
                 <b-button @click="play(props.row)">{{$t('Play')}}</b-button>
                 &nbsp;
                 <b-button v-if="props.row.scene_id === 0" @click="match(props.row)">{{$t('Match')}}</b-button>
-                <b-button v-else disabled>{{$t('Match')}}</b-button>
+                <b-button v-else @click="showDetails(props.row)">Scene</b-button>
                 &nbsp;
                 <button class="button is-danger is-outlined" @click='removeFile(props.row)'>
                   <b-icon pack="fas" icon="trash"></b-icon>
@@ -68,6 +68,8 @@
         </div>
       </div>
     </div>
+    <Details v-if="showOverlay"/>
+    <EditScene v-if="showEdit" />
   </div>
 </template>
 
@@ -75,9 +77,12 @@
   import prettyBytes from "pretty-bytes";
   import {format, parseISO} from "date-fns";
   import ky from "ky";
+  import Details from "../scenes/Details";
+  import EditScene from "../scenes/EditScene";
 
   export default {
     name: "List",
+    components: { Details, EditScene },
     data() {
       return {
         files: [],
@@ -94,6 +99,12 @@
       },
       items() {
         return this.$store.state.files.items;
+      },
+      showOverlay() {
+        return this.$store.state.overlay.details.show;
+      },
+      showEdit() {
+        return this.$store.state.overlay.edit.show;
       }
     },
     mounted() {
@@ -108,7 +119,20 @@
         this.$store.dispatch("files/load");
       },
       play(file) {
-        this.$store.commit("overlay/showPlayer", {file: file});
+        ky.get(`/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`);
+        // this.$store.commit("overlay/showPlayer", {file: file});
+      },
+      async showDetails(file) {
+        console.log(file);
+        const scene = await fetch("http://localhost:9999/api/scene/list", {
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": JSON.stringify({id:file.scene_id}),
+          "method": "POST"
+        }).then(res => res.json()).then(res => res.scenes.pop());
+        console.log(scene);
+        this.$store.commit("overlay/showDetails", {scene: scene});
       },
       match(file) {
         this.$store.commit("overlay/showMatch", {file: file});

@@ -326,6 +326,7 @@ func SceneCreateUpdateFromExternal(db *gorm.DB, ext ScrapedScene) error {
 }
 
 type RequestSceneList struct {
+	Id           optional.Int      `json:"id"`
 	Limit        optional.Int      `json:"limit"`
 	Offset       optional.Int      `json:"offset"`
 	IsAvailable  optional.Bool     `json:"isAvailable"`
@@ -387,6 +388,10 @@ func QueryScenes(r RequestSceneList, enablePreload bool) ResponseSceneList {
 			Preload("Files").
 			Preload("History").
 			Preload("Cuepoints")
+	}
+
+	if r.Id.Present() {
+		tx = tx.Where("id = ?", r.Id.OrElse(0))
 	}
 
 	if r.IsWatched.Present() {

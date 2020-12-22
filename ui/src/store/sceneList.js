@@ -126,7 +126,7 @@ const mutations = {
 };
 
 const actions = {
-  async filters({state}) {
+  async filters({ state }) {
     state.playlists = await ky.get(`/api/playlist`).json();
     state.filterOpts = await ky.get(`/api/scene/filters`).json();
 
@@ -137,10 +137,14 @@ const actions = {
     let iOffset = params.offset || 0;
 
     state.isLoading = true;
-
-    let q = Object.assign({}, state.filters);
-    q.offset = iOffset;
-    q.limit = state.limit;
+    let q = {};
+    if (params.id) {
+      q.id = params.id;
+    } else {
+      q = Object.assign({}, state.filters);
+      q.offset = iOffset;
+      q.limit = state.limit;
+    }
 
     let data = await ky
       .post(`/api/scene/list`, {json: q})
