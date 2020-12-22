@@ -1,4 +1,4 @@
-package xbvr
+package api
 
 import (
 	"encoding/binary"
@@ -14,6 +14,7 @@ import (
 	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/markphelps/optional"
+	"github.com/xbapps/xbvr/pkg/common"
 	"github.com/xbapps/xbvr/pkg/models"
 )
 
@@ -91,16 +92,9 @@ type DeoSceneVideoSource struct {
 	URL        string `json:"url"`
 }
 
-func deoAuthEnabled() bool {
-	if DEOPASSWORD != "" && DEOUSER != "" {
-		return true
-	} else {
-		return false
-	}
-}
 
 func restfulAuthFilter(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
-	if deoAuthEnabled() {
+	if common.IsDeoAuthEnabled() {
 		var authorized bool
 
 		u, err := req.BodyParameter("login")
@@ -113,7 +107,7 @@ func restfulAuthFilter(req *restful.Request, resp *restful.Response, chain *rest
 			authorized = false
 		}
 
-		if u == DEOUSER && p == DEOPASSWORD {
+		if u == common.DEOUSER && p == common.DEOPASSWORD {
 			authorized = true
 		}
 
