@@ -460,9 +460,9 @@ func (i ConfigResource) saveOptionsDLNA(req *restful.Request, resp *restful.Resp
 		time.Sleep(1 * time.Second)
 	}
 
-	if r.Enabled {
-		tasks.StartDMS()
-	}
+	// if r.Enabled {
+	// 	tasks.StartDMS()
+	// }
 
 	resp.WriteHeaderAndEntity(http.StatusOK, r)
 }

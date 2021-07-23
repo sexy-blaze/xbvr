@@ -186,9 +186,9 @@ func StartServer(version, commit, branch, date string) {
 	log.Infof("XBVR %v (build date %v) starting...", version, date)
 
 	// DMS
-	if config.Config.Interfaces.DLNA.Enabled {
-		go tasks.StartDMS()
-	}
+	// if config.Config.Interfaces.DLNA.Enabled {
+	// 	go tasks.StartDMS()
+	// }
 
 	// DeoVR remote
 	go session.DeoRemote()
