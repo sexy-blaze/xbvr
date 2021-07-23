@@ -139,11 +139,15 @@ const actions = {
   async load ({ state, getters, commit }, params) {
     const iOffset = params.offset || 0
 
-    state.isLoading = true
-
-    const q = Object.assign({}, state.filters)
-    q.offset = iOffset
-    q.limit = state.limit
+    state.isLoading = true;
+    let q = {};
+    if (params.id) {
+      q.id = params.id;
+    } else {
+      q = Object.assign({}, state.filters);
+      q.offset = iOffset;
+      q.limit = state.limit;
+    }
 
     const data = await ky
       .post('/api/scene/list', { json: q })

@@ -13,11 +13,11 @@
       @keydown.g="toggleGallery"
     />
 
-    <div class="modal-background"></div>
+    <div class="modal-background" @click='close()'></div>
 
     <div class="modal-card">
       <section class="modal-card-body">
-        <div class="columns">
+          <div class="columns" style="display: -webkit-box;">
 
           <div class="column">
             <b-tabs v-model="activeMedia" position="is-centered" :animated="false">
@@ -58,7 +58,8 @@
                   <small class="is-pulled-right">{{ format(parseISO(item.release_date), "yyyy-MM-dd") }}</small>
                 </h3>
                 <small>
-                  <a :href="item.scene_url" target="_blank" rel="noreferrer">{{ item.site }}</a>
+                  <a :href="item.scene_url" target="_blank" rel="noreferrer">{{ item.site }}</a>&nbsp;
+                  <a @click="showSiteScenes([item.site])">(Filter)</a>
                 </small>
                 <div class="columns mt-0">
                   <div class="column pt-0">
@@ -325,24 +326,14 @@ export default {
       this.player.poster(this.getImageURL(this.item.cover_url, ''))
     },
     showCastScenes (actor) {
-      this.$store.state.sceneList.filters.cast = actor
-      this.$store.state.sceneList.filters.sites = []
-      this.$store.state.sceneList.filters.tags = []
-      this.$router.push({
-        name: 'scenes',
-        query: { q: this.$store.getters['sceneList/filterQueryParams'] }
-      })
-      this.close()
+      console.log('vrp', actor);
+      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({cast:actor})))}`,'_blank');
     },
     showTagScenes (tag) {
-      this.$store.state.sceneList.filters.cast = []
-      this.$store.state.sceneList.filters.sites = []
-      this.$store.state.sceneList.filters.tags = tag
-      this.$router.push({
-        name: 'scenes',
-        query: { q: this.$store.getters['sceneList/filterQueryParams'] }
-      })
-      this.close()
+      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({tags:tag})))}`,'_blank');
+    },
+    showSiteScenes (site) {
+      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({sites:site})))}`,'_blank');
     },
     playPreview () {
       this.activeMedia = 1
@@ -350,9 +341,10 @@ export default {
       this.player.play()
     },
     playFile (file) {
-      this.activeMedia = 1
       this.updatePlayer('/api/dms/file/' + file.id + '?dnt=true', '180')
-      this.player.play()
+      ky.get(
+        `/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`
+      );
     },
     removeFile (file) {
       this.$buefy.dialog.confirm({

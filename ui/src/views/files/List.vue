@@ -45,7 +45,7 @@
               <div class="block">
                 <b-button @click="play(props.row)" v-if="props.row.type === 'video'">{{ $t('Play') }}</b-button>
                 <b-button v-if="props.row.scene_id === 0" @click="match(props.row)">{{ $t('Match') }}</b-button>
-                <b-button v-else disabled>{{ $t('Match') }}</b-button>
+                <b-button v-else @click="showDetails(props.row)">Scene</b-button>
               </div>
             </b-table-column>
             <b-table-column style="white-space: nowrap;" v-slot="props">
@@ -73,6 +73,8 @@
         </div>
       </div>
     </div>
+    <Details v-if="showOverlay"/>
+    <EditScene v-if="showEdit" />
   </div>
 </template>
 
@@ -80,9 +82,12 @@
 import prettyBytes from 'pretty-bytes'
 import { format, parseISO } from 'date-fns'
 import ky from 'ky'
+import Details from '../scenes/Details'
+import EditScene from '../scenes/EditScene'
 
 export default {
   name: 'List',
+  components: { Details, EditScene },
   data () {
     return {
       files: [],
@@ -99,6 +104,12 @@ export default {
     },
     items () {
       return this.$store.state.files.items
+    },
+    showOverlay() {
+      return this.$store.state.overlay.details.show
+    },
+    showEdit() {
+      return this.$store.state.overlay.edit.show
     }
   },
   mounted () {
@@ -113,7 +124,17 @@ export default {
       this.$store.dispatch('files/load')
     },
     play (file) {
-      this.$store.commit('overlay/showPlayer', { file: file })
+      ky.get(`/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`);
+    },
+    async showDetails(file) {
+      const scene = await fetch("http://localhost:9999/api/scene/list", {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": JSON.stringify({id:file.scene_id}),
+        "method": "POST"
+      }).then(res => res.json()).then(res => res.scenes.pop());
+      this.$store.commit("overlay/showDetails", {scene: scene});
     },
     match (file) {
       this.$store.commit('overlay/showMatch', { file: file })

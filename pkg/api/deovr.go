@@ -1,8 +1,10 @@
 package api
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"sort"
 	"strconv"
@@ -176,6 +178,10 @@ func (i DeoVRResource) WebService() *restful.WebService {
 		Consumes(restful.MIME_JSON, "application/x-www-form-urlencoded").
 		Produces(restful.MIME_JSON)
 
+	ws.Route(ws.GET("/local/{file-path}").Filter(restfulAuthFilter).To(i.openVideoInDeo).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Writes(DeoSceneActor{}))
+
 	ws.Route(ws.HEAD("").To(i.getDeoLibrary))
 
 	ws.Route(ws.GET("").Filter(restfulAuthFilter).To(i.getDeoLibrary).
@@ -200,6 +206,45 @@ func (i DeoVRResource) WebService() *restful.WebService {
 		Writes(DeoScene{}))
 
 	return ws
+}
+
+func (i DeoVRResource) openVideoInDeo(req *restful.Request, resp *restful.Response) {
+	var fileName = strings.Replace(req.PathParameter("file-path"), "\\", "/", -1)
+	strEcho := "{\"path\":\"" + fileName + "\",\"duration\":null,\"currentTime\":0.0,\"playbackSpeed\":0.0,\"playerState\":null}"
+	servAddr := "127.0.0.1:23554"
+	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
+	if err != nil {
+		fileName = fileName + "ResolveTCPAddr failed:" + err.Error()
+		println("ResolveTCPAddr failed:", err.Error())
+	} else {
+		conn, err := net.DialTCP("tcp", nil, tcpAddr)
+		if err != nil {
+			fileName = fileName + "Dial failed:" + err.Error()
+			println("Dial failed:", err.Error())
+			conn.Close()
+		} else {
+			jsonAsBytes := []byte(strEcho)
+			jsonByteLen := int32(len(jsonAsBytes))
+			lengthAsBytes := make([]byte, 4)
+			binary.LittleEndian.PutUint32(lengthAsBytes, uint32(jsonByteLen))
+			payload := append(lengthAsBytes, jsonAsBytes...)
+			_, err = conn.Write(payload)
+			if err != nil {
+				fileName = fileName + "Write to server failed:" + err.Error()
+				println("Write to server failed:", err.Error())
+				conn.Close()
+			} else {
+				fileName = fileName + "write to server = " + strEcho
+				println("write to server = ", strEcho)
+				conn.Close()
+			}
+		}
+	}
+	response := DeoSceneActor{
+		ID:   0,
+		Name: fileName,
+	}
+	resp.WriteHeaderAndEntity(http.StatusOK, response)
 }
 
 func (i DeoVRResource) getDeoFile(req *restful.Request, resp *restful.Response) {
