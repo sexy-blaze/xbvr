@@ -439,6 +439,7 @@ type RequestSceneList struct {
 	Lists        []optional.String `json:"lists"`
 	Sites        []optional.String `json:"sites"`
 	Tags         []optional.String `json:"tags"`
+	ExcludedTags []optional.String `json:"excludedTags"`
 	Cast         []optional.String `json:"cast"`
 	Cuepoint     []optional.String `json:"cuepoint"`
 	Volume       optional.Int      `json:"volume"`
@@ -479,6 +480,7 @@ func QueryScenes(r RequestSceneList, enablePreload bool) ResponseSceneList {
 
 	db, _ := GetDB()
 	defer db.Close()
+	db.LogMode(true)
 
 	var scenes []Scene
 	tx := db.Model(&scenes)
@@ -532,7 +534,23 @@ func QueryScenes(r RequestSceneList, enablePreload bool) ResponseSceneList {
 		tx = tx.
 			Joins("left join scene_tags on scene_tags.scene_id=scenes.id").
 			Joins("left join tags on tags.id=scene_tags.tag_id").
-			Where("tags.name IN (?)", tags)
+			Where("tags.name IN (?)", tags).
+			Select("scenes.*, '|'||group_concat(tags.name, '|')||'|' AS my_tags")
+	}
+
+	var exTags []string
+	for _, i := range r.ExcludedTags {
+		exTags = append(exTags, i.OrElse(""))
+	}
+	if len(exTags) > 0 {
+		if len(tags) == 0 {
+			tx = tx.
+				Joins("left join scene_tags on scene_tags.scene_id=scenes.id").
+				Joins("left join tags on tags.id=scene_tags.tag_id").
+				Select("scenes.*, '|'||group_concat(tags.name, '|')||'|' as my_tags")
+		}
+		// tx = tx.Where("tags.name NOT IN (?)", exTags)
+		// tx = tx.Having("tags NOT REGEXP '\\|asdfaf\\||\\|adfasdf\\|'")
 	}
 
 	var cast []string
@@ -622,12 +640,16 @@ func QueryScenes(r RequestSceneList, enablePreload bool) ResponseSceneList {
 	if r.IsAccessible.Present() {
 		tx = tx.Where("is_accessible = ?", r.IsAccessible.OrElse(true))
 	}
-
 	// Count totals for selection
 	tx.
 		Group("scenes.scene_id").
 		Count(&out.Results)
 
+	if len(exTags) > 0 {
+		for _, i := range exTags {
+			tx = tx.Having("my_tags NOT LIKE ?", "%|"+i+"|%")
+		}
+	}
 	// Get scenes
 	tx.
 		Group("scenes.scene_id").

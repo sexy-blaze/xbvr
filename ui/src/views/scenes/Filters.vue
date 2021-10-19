@@ -121,6 +121,13 @@
         </b-taginput>
       </b-field>
 
+      <b-field label="Excluded Tags" label-position="on-border" class="field-extra">
+        <b-taginput v-model="excludedTags" autocomplete :data="filteredExTags" @typing="getFilteredExTags">
+          <template slot-scope="props">{{ props.option }}</template>
+          <template slot="empty">No matching tags</template>
+        </b-taginput>
+      </b-field>
+
       <b-field label="Cuepoint" label-position="on-border" class="field-extra">
         <b-taginput v-model="cuepoint" allow-new>
           <template slot-scope="props">{{ props.option }}</template>
@@ -145,7 +152,8 @@ export default {
     return {
       filteredCast: [],
       filteredSites: [],
-      filteredTags: []
+      filteredTags: [],
+      filteredExTags: []
     }
   },
   methods: {
@@ -171,6 +179,12 @@ export default {
     },
     getFilteredTags (text) {
       this.filteredTags = this.filters.tags.filter(option => (
+        option.toString().toLowerCase().indexOf(text.toLowerCase()) >= 0 &&
+        !this.tags.some(entry => entry.toString() === option.toString())
+      ))
+    },
+    getFilteredExTags (text) {
+      this.filteredExTags = this.filters.tags.filter(option => (
         option.toString().toLowerCase().indexOf(text.toLowerCase()) >= 0 &&
         !this.tags.some(entry => entry.toString() === option.toString())
       ))
@@ -239,6 +253,15 @@ export default {
       },
       set (value) {
         this.$store.state.sceneList.filters.tags = value
+        this.reloadList()
+      }
+    },
+    excludedTags: {
+      get () {
+        return this.$store.state.sceneList.filters.excludedTags
+      },
+      set (value) {
+        this.$store.state.sceneList.filters.excludedTags = value
         this.reloadList()
       }
     },
