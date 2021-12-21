@@ -9,6 +9,7 @@ var (
 	DATABASE_URL   = ""
 	WsAddr         = "0.0.0.0:9998"
 	CurrentVersion = ""
+	IsDll          = true
 )
 
 type EnvConfigSpec struct {

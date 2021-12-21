@@ -480,7 +480,6 @@ func QueryScenes(r RequestSceneList, enablePreload bool) ResponseSceneList {
 
 	db, _ := GetDB()
 	defer db.Close()
-	db.LogMode(true)
 
 	var scenes []Scene
 	tx := db.Model(&scenes)

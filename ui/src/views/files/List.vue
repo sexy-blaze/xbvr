@@ -105,10 +105,10 @@ export default {
     items () {
       return this.$store.state.files.items
     },
-    showOverlay() {
+    showOverlay () {
       return this.$store.state.overlay.details.show
     },
-    showEdit() {
+    showEdit () {
       return this.$store.state.overlay.edit.show
     }
   },
@@ -124,17 +124,16 @@ export default {
       this.$store.dispatch('files/load')
     },
     play (file) {
-      ky.get(`/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`);
+      ky.get(`/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`)
     },
-    async showDetails(file) {
-      const scene = await fetch("http://localhost:9999/api/scene/list", {
-        "headers": {
-          "content-type": "application/json"
+    async showDetails (file) {
+      const scene = await fetch(`http://localhost:9999/api/scene/${file.scene_id}`, {
+        headers: {
+          'content-type': 'application/json'
         },
-        "body": JSON.stringify({id:file.scene_id}),
-        "method": "POST"
-      }).then(res => res.json()).then(res => res.scenes.pop());
-      this.$store.commit("overlay/showDetails", {scene: scene});
+        method: 'GET'
+      }).then(res => res.json())
+      this.$store.commit('overlay/showDetails', { scene: scene })
     },
     match (file) {
       this.$store.commit('overlay/showMatch', { file: file })

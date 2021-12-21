@@ -146,6 +146,9 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 		_ = filepath.Walk(vol.Path, func(path string, f os.FileInfo, err error) error {
 			if !f.Mode().IsDir() {
 				// Make sure the filename should be considered
+				path = strings.ReplaceAll(path, "fefb.dll", "_MKX200_FB360.mp4")
+				path = strings.ReplaceAll(path, "fe.dll", "_MKX200.mp4")
+				path = strings.ReplaceAll(path, ".dll", "_sbs_180.mp4")
 				if !strings.HasPrefix(filepath.Base(path), ".") && funk.Contains(allowedVideoExt, strings.ToLower(filepath.Ext(path))) {
 					var fl models.File
 					err = db.Where(&models.File{Path: filepath.Dir(path), Filename: filepath.Base(path)}).First(&fl).Error
@@ -165,10 +168,16 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 		filenameSeparator := regexp.MustCompile("[ _.-]+")
 
 		for j, path := range videoProcList {
-			fStat, _ := os.Stat(path)
-			fTimes, err := times.Stat(path)
+			var currPath = path
+			if common.IsDll {
+				currPath = strings.ReplaceAll(currPath, "_MKX200_FB360.mp4", "fefb.dll")
+				currPath = strings.ReplaceAll(currPath, "_MKX200.mp4", "fe.dll")
+				currPath = strings.ReplaceAll(currPath, "_sbs_180.mp4", ".dll")
+			}
+			fStat, _ := os.Stat(currPath)
+			fTimes, err := times.Stat(currPath)
 			if err != nil {
-				tlog.Errorf("Can't get the modification/creation times for %s, error: %s", path, err)
+				tlog.Errorf("Can't get the modification/creation times for %s, error: %s", currPath, err)
 			}
 
 			var birthtime time.Time
@@ -189,13 +198,13 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 			fl.UpdatedTime = fTimes.ModTime()
 			fl.VolumeID = vol.ID
 
-			ffdata, err := ffprobe.GetProbeData(path, time.Second*3)
+			ffdata, err := ffprobe.GetProbeData(currPath, time.Second*3)
 			if err != nil {
-				tlog.Error("Error running ffprobe", path, err)
+				tlog.Error("Error running ffprobe", currPath, err)
 			} else {
 				vs := ffdata.GetFirstVideoStream()
 				if vs == nil {
-					tlog.Error("No video stream in file ", path)
+					tlog.Error("No video stream in file ", currPath)
 				} else {
 					if vs.BitRate != "" {
 						bitRate, _ := strconv.Atoi(vs.BitRate)
@@ -231,7 +240,7 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 
 			err = fl.Save()
 			if err != nil {
-				tlog.Errorf("New file %s, but got error %s", path, err)
+				tlog.Errorf("New file %s, but got error %s", currPath, err)
 			}
 
 			tlog.Infof("Scanning %v (%v/%v)", vol.Path, j+1, len(videoProcList))

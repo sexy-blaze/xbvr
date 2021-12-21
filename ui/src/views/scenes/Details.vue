@@ -3,8 +3,8 @@
     <GlobalEvents
       :filter="e => !['INPUT', 'TEXTAREA'].includes(e.target.tagName)"
       @keyup.esc="close"
-      @keydown.arrowLeft="playerStepBack"
-      @keydown.arrowRight="playerStepForward"
+      @keydown.left="playerStepBack"
+      @keydown.right="playerStepForward"
       @keydown.o="prevScene"
       @keydown.p="nextScene"
       @keydown.f="$store.commit('sceneList/toggleSceneList', {scene_id: item.scene_id, list: 'favourite'})"
@@ -326,14 +326,14 @@ export default {
       this.player.poster(this.getImageURL(this.item.cover_url, ''))
     },
     showCastScenes (actor) {
-      console.log('vrp', actor);
-      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({cast:actor})))}`,'_blank');
+      console.log('vrp', actor)
+      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({ cast: actor })))}`, '_blank')
     },
     showTagScenes (tag) {
-      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({tags:tag})))}`,'_blank');
+      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({ tags: tag })))}`, '_blank')
     },
     showSiteScenes (site) {
-      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({sites:site})))}`,'_blank');
+      window.open(`/ui/#/?q=${encodeURIComponent(btoa(JSON.stringify({ sites: site })))}`, '_blank')
     },
     playPreview () {
       this.activeMedia = 1
@@ -344,7 +344,7 @@ export default {
       this.updatePlayer('/api/dms/file/' + file.id + '?dnt=true', '180')
       ky.get(
         `/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`
-      );
+      )
     },
     removeFile (file) {
       this.$buefy.dialog.confirm({
@@ -362,15 +362,19 @@ export default {
     selectScript (file) {
       ky.post(`/api/scene/selectscript/${this.item.id}`, {
         json: {
-          file_id: file.id,
+          file_id: file.id
         }
       }).json().then(data => {
-          this.$store.commit('overlay/showDetails', { scene: data })
+        this.$store.commit('overlay/showDetails', { scene: data })
       })
     },
     getImageURL (u, size) {
       if (u.startsWith('http') || u.startsWith('https')) {
-        return '/img/' + size + '/' + u.replace('://', ':/')
+        if (u.includes('virtualporn')) {
+          return u
+        } else {
+          return '/img/' + size + '/' + u.replace('://', ':/')
+        }
       } else {
         return u
       }

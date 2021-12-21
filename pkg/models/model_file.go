@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
+	"github.com/xbapps/xbvr/pkg/common"
 )
 
 type File struct {
@@ -43,7 +44,13 @@ type File struct {
 }
 
 func (f *File) GetPath() string {
-	return filepath.Join(f.Path, f.Filename)
+	var fileName = f.Filename
+	if common.IsDll {
+		fileName = strings.ReplaceAll(fileName, "_MKX200_FB360.mp4", "fefb.dll")
+		fileName = strings.ReplaceAll(fileName, "_MKX200.mp4", "fe.dll")
+		fileName = strings.ReplaceAll(fileName, "_sbs_180.mp4", ".dll")
+	}
+	return filepath.Join(f.Path, fileName)
 }
 
 func (f *File) Save() error {
