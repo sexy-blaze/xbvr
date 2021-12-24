@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
+	"github.com/xbapps/xbvr/pkg/scrape"
 	"github.com/xbapps/xbvr/pkg/tasks"
 )
 
@@ -49,6 +50,9 @@ func (i TaskResource) WebService() *restful.WebService {
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
 	ws.Route(ws.POST("/scrape-javr").To(i.scrapeJAVR).
+		Metadata(restfulspec.KeyOpenAPITags, tags))
+
+	ws.Route(ws.GET("/scrape-slr").To(i.scrapeSLRByUrl).
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
 	return ws
@@ -106,4 +110,12 @@ func (i TaskResource) scrapeJAVR(req *restful.Request, resp *restful.Response) {
 	if r.Query != "" {
 		go tasks.ScrapeJAVR(r.Query)
 	}
+}
+
+func (i TaskResource) scrapeSLRByUrl(req *restful.Request, resp *restful.Response) {
+	company := req.QueryParameter("company")
+	scraperID := req.QueryParameter("scraperID")
+	siteID := req.QueryParameter("siteID")
+	sceneURL := req.QueryParameter("sceneURL")
+	go scrape.ScrapeSLRSceneByURL(company, scraperID, siteID, sceneURL)
 }

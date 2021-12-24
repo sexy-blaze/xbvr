@@ -66,6 +66,23 @@
         </div>
       </div>
     </div>
+    <h3 class="title">Custom SLR</h3>
+    <div class="columns is-multiline">
+      <div class="column is-multiline is-one-third">
+        <div class="card">
+          <div class="card-content content">
+            <h5 class="title">SLR</h5>
+            <b-field grouped>
+              <b-input v-model="company" placeholder="Studio" type="search"></b-input>
+              <b-input v-model="siteId" placeholder="Site Name" type="search"></b-input>
+              <b-input v-model="scraperId" placeholder="Scene Id prefix" type="search"></b-input>
+              <b-input v-model="sceneURL" placeholder="scene URL" type="search"></b-input>
+              <b-button class="button is-primary" v-on:click="scrapeSLR()">Scrape</b-button>
+            </b-field>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -79,7 +96,11 @@ export default {
   components: { VueLoadImage },
   data () {
     return {
-      javrQuery: ''
+      javrQuery: '',
+      company: '',
+      scraperId: '',
+      siteId: '',
+      sceneURL: ''
     }
   },
   mounted () {
@@ -119,7 +140,10 @@ export default {
       ky.post('/api/task/scrape-javr', { json: { q: this.javrQuery } })
     },
     parseISO,
-    formatDistanceToNow
+    formatDistanceToNow,
+    scrapeSLR () {
+      ky.get(`/api/task/scrape-slr?company=${encodeURIComponent(this.company)}&scraperID=${encodeURIComponent(this.scraperId)}&siteID=${encodeURIComponent(this.siteId)}&sceneURL=${encodeURIComponent(this.sceneURL)}`)
+    }
   },
   computed: {
     items () {

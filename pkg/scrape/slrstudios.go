@@ -14,18 +14,10 @@ import (
 	"github.com/xbapps/xbvr/pkg/models"
 )
 
-func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene, scraperID string, siteID string, company string) error {
-	defer wg.Done()
-	logScrapeStart(scraperID, siteID)
-
+func sceneCollector(company string, siteID string, scraperID string, out chan<- models.ScrapedScene) *colly.Collector {
 	sceneCollector := createCollector("www.sexlikereal.com")
-	siteCollector := createCollector("www.sexlikereal.com")
-
-	// RegEx Patterns
 	coverRegEx := regexp.MustCompile(`background(?:-image)?\s*?:\s*?url\s*?\(\s*?(.*?)\s*?\)`)
-	durationRegExForSceneCard := regexp.MustCompile(`^(?:(\d{2}):)?(\d{2}):(\d{2})$`)
 	durationRegExForScenePage := regexp.MustCompile(`^T(\d{0,2})H?(\d{2})M(\d{2})S$`)
-
 	sceneCollector.OnHTML(`html`, func(e *colly.HTMLElement) {
 		sc := models.ScrapedScene{}
 		sc.SceneType = "VR"
@@ -88,7 +80,12 @@ func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 		})
 
 		// Duration
-		sc.Duration = e.Request.Ctx.GetAny("duration").(int)
+		duration := e.Request.Ctx.GetAny("duration")
+		if duration != nil {
+			sc.Duration = duration.(int)
+		} else {
+			sc.Duration = 0
+		}
 
 		// Extract from JSON meta data
 		// NOTE: SLR only provides certain information like duration as json metadata inside a script element
@@ -169,6 +166,31 @@ func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out 
 
 		out <- sc
 	})
+	return sceneCollector
+}
+
+func ScrapeSceneByURL(company string, scraperID string, siteID string, sceneURL string) {
+	db, _ := models.GetDB()
+	defer db.Close()
+	collectedScenes := make(chan models.ScrapedScene)
+	go func() {
+		sceneCollector := sceneCollector(company, siteID, scraperID, collectedScenes)
+		ctx := colly.NewContext()
+		sceneCollector.Request("GET", sceneURL, nil, ctx, nil)
+	}()
+	scene := <-collectedScenes
+	models.SceneCreateUpdateFromExternal(db, scene)
+}
+
+func SexLikeReal(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<- models.ScrapedScene, scraperID string, siteID string, company string) error {
+	defer wg.Done()
+	logScrapeStart(scraperID, siteID)
+
+	sceneCollector := sceneCollector(company, siteID, scraperID, out)
+	siteCollector := createCollector("www.sexlikereal.com")
+
+	// RegEx Patterns
+	durationRegExForSceneCard := regexp.MustCompile(`^(?:(\d{2}):)?(\d{2}):(\d{2})$`)
 
 	siteCollector.OnHTML(`div.c-pagination ul li a`, func(e *colly.HTMLElement) {
 		pageURL := e.Request.AbsoluteURL(e.Attr("href"))

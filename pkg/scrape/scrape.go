@@ -159,3 +159,9 @@ func getTextFromHTMLWithSelector(data string, sel string) string {
 	}
 	return strings.TrimSpace(doc.Find(sel).Text())
 }
+
+func ScrapeSLRSceneByURL(company string, scraperID string, siteID string, sceneURL string) {
+	// company - studio, siteID - site
+	// scene_id - scraperID-siteID
+	ScrapeSceneByURL(company, scraperID, siteID, sceneURL)
+}
