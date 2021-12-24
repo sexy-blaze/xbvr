@@ -85,7 +85,11 @@ export default {
   methods: {
     getImageURL (u) {
       if (u.startsWith('http')) {
-        return '/img/700x/' + u.replace('://', ':/')
+        if (u.includes('virtualporn')) {
+          return u
+        } else {
+          return '/img/700x/' + u.replace('://', ':/')
+        }
       } else {
         return u
       }
