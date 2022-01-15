@@ -198,7 +198,7 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 			fl.UpdatedTime = fTimes.ModTime()
 			fl.VolumeID = vol.ID
 
-			ffdata, err := ffprobe.GetProbeData(currPath, time.Second*3)
+			ffdata, err := ffprobe.GetProbeData(path, time.Second*5)
 			if err != nil {
 				tlog.Error("Error running ffprobe", currPath, err)
 			} else {

@@ -70,7 +70,8 @@
                     <div class="is-pulled-right">
                       <watchlist-button :item="item"/>&nbsp;
                       <favourite-button :item="item"/>&nbsp;
-                      <edit-button :item="item"/>
+                      <edit-button :item="item"/>&nbsp;
+                      <refresh-button :item="item"/>
                     </div>
                   </div>
                 </div>
@@ -118,7 +119,10 @@
                         </div>
                       </div>
                       <div class="media-right">
-                        <button class="button is-danger is-small is-outlined" @click='removeFile(f)'>
+                        <button class="button is-dark is-small is-outlined" title="Unmatch file from scene" @click='unmatchFile(f)'>
+                          <b-icon pack="fas" icon="unlink" size="is-small"></b-icon>
+                        </button>&nbsp;
+                        <button class="button is-danger is-small is-outlined" title="Delete file from disk" @click='removeFile(f)'>
                           <b-icon pack="fas" icon="trash" size="is-small"></b-icon>
                         </button>
                       </div>
@@ -208,10 +212,11 @@ import StarRating from 'vue-star-rating'
 import FavouriteButton from '../../components/FavouriteButton'
 import WatchlistButton from '../../components/WatchlistButton'
 import EditButton from '../../components/EditButton'
+import RefreshButton from '../../components/RefreshButton'
 
 export default {
   name: 'Details',
-  components: { VueLoadImage, GlobalEvents, StarRating, WatchlistButton, FavouriteButton, EditButton },
+  components: { VueLoadImage, GlobalEvents, StarRating, WatchlistButton, FavouriteButton, EditButton, RefreshButton },
   data () {
     return {
       index: 1,
@@ -345,6 +350,20 @@ export default {
       ky.get(
         `/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`
       )
+    },
+    unmatchFile (file) {
+      this.$buefy.dialog.confirm({
+        title: 'Unmatch file',
+        message: `You're about to unmatch the file <strong>${file.filename}</strong> from this scene. Afterwards, it can be matched again to this or any other scene.`,
+        type: 'is-info is-wide',
+        hasIcon: true,
+        id: 'heh',
+        onConfirm: () => {
+          ky.post(`/api/files/unmatch`, {json:{file_id: file.id}}).json().then(data => {
+            this.$store.commit('overlay/showDetails', { scene: data })
+          })
+        }
+      })
     },
     removeFile (file) {
       this.$buefy.dialog.confirm({
