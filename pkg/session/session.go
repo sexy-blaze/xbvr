@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +21,7 @@ var (
 	isPlaying          bool
 	currentPosition    float64
 	currentFileID      int
+	currentFileName    string
 	currentSceneID     uint
 	lastSessionID      uint
 	lastSessionSceneID uint
@@ -61,29 +61,32 @@ func TrackSessionFromRemote(packet DeoPacket) {
 
 	sessionSource = "deovr"
 	isPlaying = packet.PlayerState == PLAYING
+	if !isPlaying {
+		return
+	}
 	currentPosition = packet.CurrentTime
-
 	tmpPath, err := url.Parse(packet.Path)
 	if err != nil {
 		return
 	}
 	tmp := strings.Split(tmpPath.Path, "/")
-	tmpCurrentFileID, err := strconv.Atoi(tmp[len(tmp)-1])
-	if err != nil {
-		return
-	}
+	tmpCurrentFileName := tmp[len(tmp)-1]
 
 	// Currently playing file has changed
-	if tmpCurrentFileID != currentFileID {
+	if tmpCurrentFileName != currentFileName {
 		// Get scene ID
-		currentFileID = tmpCurrentFileID
+		currentFileName = tmpCurrentFileName
 
 		f := models.File{}
 		db, _ := models.GetDB()
-		err = db.First(&f, currentFileID).Error
+		err = db.First(&f, "filename = ?", currentFileName).Error
+		if err != nil {
+			return
+		}
 		defer db.Close()
 
 		// Create new session
+		currentFileID = int(f.ID)
 		if lastSessionSceneID != f.SceneID {
 			newWatchSession(f.SceneID)
 		}
@@ -174,6 +177,7 @@ func watchSessionFlush() {
 	}
 
 	currentFileID = 0
+	currentFileName = ""
 	currentSceneID = 0
 	lastSessionID = 0
 	lastSessionSceneID = 0

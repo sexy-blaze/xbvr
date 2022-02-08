@@ -22,8 +22,9 @@ const PLAYING = 0
 const PAUSED = 1
 const FINISHED = 2
 
-var DeoPlayerHost = ""
+var DeoPlayerHost = "127.0.0.1"
 var DeoRequestHost = ""
+var CommandPush DeoPacket = DeoPacket{}
 
 func DeoRemote() {
 	for {
@@ -85,11 +86,12 @@ func deoLoop() error {
 		}
 
 		// Check if there's command queued, otherwise send ping packet
-		packet := encodePacket(DeoPacket{})
+		packet := encodePacket(CommandPush)
 		_, err = conn.Write(packet)
 		if err != nil {
 			return err
 		}
+		CommandPush = DeoPacket{}
 
 		go common.PublishWS("remote.state", map[string]interface{}{
 			"connected":       true,
@@ -99,6 +101,7 @@ func deoLoop() error {
 			"sessionStart":    lastSessionStart,
 			"sessionEnd":      lastSessionEnd,
 			"currentFileID":   currentFileID,
+			"currentFileName": currentFileName,
 			"currentSceneID":  currentSceneID,
 		})
 	}

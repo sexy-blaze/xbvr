@@ -2,7 +2,7 @@
   "name": "xbvr",
   "private": true,
   "scripts": {
-    "serve": "taskkill /IM xbvr.exe /F & go generate && air",
+    "serve": "npm run kill & go generate && air",
     "build": "cd ui && vue-cli-service build",
     "lint": "cd ui && vue-cli-service lint",
     "i18n:report": "vue-cli-service i18n:report --src './src/**/*.?(js|vue)' --locales './src/locales/**/*.json'",
@@ -10,7 +10,8 @@
     "dev": "concurrently 'npm:go:generate' 'npm:dev:ui' 'npm:dev:go'",
     "go:generate": "go generate",
     "dev:go": "air",
-    "dev:ui": "cd ui && vue-cli-service build --watch --silent"
+    "dev:ui": "cd ui && vue-cli-service build --watch --silent",
+    "kill": "taskkill /IM xbvr.exe /F"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "5.15.3",
