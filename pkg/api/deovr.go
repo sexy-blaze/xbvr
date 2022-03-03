@@ -180,6 +180,10 @@ func (i DeoVRResource) WebService() *restful.WebService {
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Writes(DeoSceneActor{}))
 
+	ws.Route(ws.GET("/local/{file-path}/{start-from}").Filter(restfulAuthFilter).To(i.openVideoInDeo).
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Writes(DeoSceneActor{}))
+
 	ws.Route(ws.HEAD("").To(i.getDeoLibrary))
 
 	ws.Route(ws.GET("").Filter(restfulAuthFilter).To(i.getDeoLibrary).
@@ -208,8 +212,14 @@ func (i DeoVRResource) WebService() *restful.WebService {
 
 func (i DeoVRResource) openVideoInDeo(req *restful.Request, resp *restful.Response) {
 	fileName := strings.Replace(req.PathParameter("file-path"), "\\", "/", -1)
+	startFrom := req.PathParameter("start-from")
+	currentTime, err := strconv.ParseFloat(startFrom, 64)
+	if err != nil {
+		currentTime = 0
+	}
 	session.CommandPush = session.DeoPacket{
-		Path: fileName,
+		Path:        fileName,
+		CurrentTime: currentTime,
 	}
 	response := DeoSceneActor{
 		ID:   0,

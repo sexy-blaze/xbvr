@@ -346,7 +346,6 @@ export default {
       this.player.play()
     },
     playFile (file) {
-      this.updatePlayer('/api/dms/file/' + file.id + '?dnt=true', '180')
       ky.get(
         `/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}`
       )
@@ -359,7 +358,7 @@ export default {
         hasIcon: true,
         id: 'heh',
         onConfirm: () => {
-          ky.post(`/api/files/unmatch`, {json:{file_id: file.id}}).json().then(data => {
+          ky.post('/api/files/unmatch', { json: { file_id: file.id } }).json().then(data => {
             this.$store.commit('overlay/showDetails', { scene: data })
           })
         }
@@ -409,8 +408,10 @@ export default {
       return `/api/dms/heatmap/${fileId}`
     },
     playCuepoint (cuepoint) {
-      this.player.currentTime(cuepoint.time_start)
-      this.player.play()
+      const file = this.item.file[0]
+      ky.get(
+        `/deovr/local/${encodeURIComponent(`${file.path}\\${file.filename}`)}/${cuepoint.time_start}`
+      )
     },
     addCuepoint () {
       let name = ''

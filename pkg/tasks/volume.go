@@ -168,12 +168,7 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 		filenameSeparator := regexp.MustCompile("[ _.-]+")
 
 		for j, path := range videoProcList {
-			var currPath = path
-			if common.IsDll {
-				currPath = strings.ReplaceAll(currPath, "_MKX200_FB360.mp4", "fefb.dll")
-				currPath = strings.ReplaceAll(currPath, "_MKX200.mp4", "fe.dll")
-				currPath = strings.ReplaceAll(currPath, "_sbs_180.mp4", ".dll")
-			}
+			var currPath = common.FileNameAsInFS(path)
 			fStat, _ := os.Stat(currPath)
 			fTimes, err := times.Stat(currPath)
 			if err != nil {

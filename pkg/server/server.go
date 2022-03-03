@@ -134,7 +134,7 @@ func StartServer(version, commit, branch, date string) {
 	r.PathPrefix("/").Handler(http.DefaultServeMux)
 
 	// CORS
-	handler := cors.Default().Handler(r)
+	handler := cors.AllowAll().Handler(r)
 
 	// WAMP router
 	routerConfig := &router.Config{

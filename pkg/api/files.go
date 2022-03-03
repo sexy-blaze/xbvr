@@ -13,6 +13,7 @@ import (
 	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/markphelps/optional"
+	"github.com/xbapps/xbvr/pkg/common"
 	"github.com/xbapps/xbvr/pkg/models"
 )
 
@@ -56,6 +57,9 @@ func (i FilesResource) WebService() *restful.WebService {
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
 	ws.Route(ws.DELETE("/file/{file-id}").To(i.removeFile).
+		Metadata(restfulspec.KeyOpenAPITags, tags))
+
+	ws.Route(ws.GET("/get-scene/{file-name}").To(i.getSceneByFileName).
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
 	return ws
@@ -354,4 +358,17 @@ func (i FilesResource) removeFile(req *restful.Request, resp *restful.Response) 
 	}
 
 	resp.WriteHeaderAndEntity(http.StatusOK, scene)
+}
+
+func (i FilesResource) getSceneByFileName(req *restful.Request, resp *restful.Response) {
+	fileName := req.PathParameter("file-name")
+	fileName = common.FileNameAsInDB(fileName)
+	f := models.File{}
+	db, _ := models.GetDB()
+	err := db.First(&f, "filename = ?", fileName).Error
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	resp.WriteHeaderAndEntity(http.StatusOK, f)
 }

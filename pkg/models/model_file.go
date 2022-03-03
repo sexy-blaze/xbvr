@@ -45,12 +45,7 @@ type File struct {
 
 func (f *File) GetPath() string {
 	var fileName = f.Filename
-	if common.IsDll {
-		fileName = strings.ReplaceAll(fileName, "_MKX200_FB360.mp4", "fefb.dll")
-		fileName = strings.ReplaceAll(fileName, "_MKX200.mp4", "fe.dll")
-		fileName = strings.ReplaceAll(fileName, "_sbs_180.mp4", ".dll")
-	}
-	return filepath.Join(f.Path, fileName)
+	return filepath.Join(f.Path, common.FileNameAsInFS(fileName))
 }
 
 func (f *File) Save() error {
