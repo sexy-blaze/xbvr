@@ -46,6 +46,7 @@ type DeoScene struct {
 	Title            string               `json:"title"`
 	Authorized       uint                 `json:"authorized"`
 	Description      string               `json:"description"`
+	Date             int64                `json:"date"`
 	Paysite          DeoScenePaysite      `json:"paysite"`
 	IsFavorite       bool                 `json:"isFavorite"`
 	IsScripted       bool                 `json:"isScripted"`
@@ -272,6 +273,7 @@ func (i DeoVRResource) getDeoFile(req *restful.Request, resp *restful.Response) 
 		Authorized:   1,
 		Description:  file.Filename,
 		Title:        file.Filename,
+		Date:         file.CreatedTime.Unix(),
 		IsFavorite:   false,
 		ThumbnailURL: session.DeoRequestHost + "/ui/images/blank.png",
 		Is3D:         true,
@@ -426,6 +428,7 @@ func (i DeoVRResource) getDeoScene(req *restful.Request, resp *restful.Response)
 		Authorized:       1,
 		Title:            title,
 		Description:      scene.Synopsis,
+		Date:             scene.ReleaseDate.Unix(),
 		Actors:           actors,
 		Paysite:          DeoScenePaysite{ID: 1, Name: scene.Site, Is3rdParty: true},
 		IsFavorite:       scene.Favourite,

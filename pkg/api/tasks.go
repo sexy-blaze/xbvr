@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/xbapps/xbvr/pkg/scrape"
@@ -9,6 +11,11 @@ import (
 
 type RequestScrapeJAVR struct {
 	Query string `json:"q"`
+}
+
+type RequestScrapeTPDB struct {
+	ApiToken string `json:"apiToken"`
+	SceneUrl string `json:"sceneUrl"`
 }
 
 type TaskResource struct{}
@@ -53,6 +60,9 @@ func (i TaskResource) WebService() *restful.WebService {
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
 	ws.Route(ws.GET("/scrape-slr").To(i.scrapeSLRByUrl).
+		Metadata(restfulspec.KeyOpenAPITags, tags))
+
+	ws.Route(ws.POST("/scrape-tpdb").To(i.scrapeTPDB).
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
 	return ws
@@ -118,4 +128,17 @@ func (i TaskResource) scrapeSLRByUrl(req *restful.Request, resp *restful.Respons
 	siteID := req.QueryParameter("siteID")
 	sceneURL := req.QueryParameter("sceneURL")
 	go scrape.ScrapeSLRSceneByURL(company, scraperID, siteID, sceneURL)
+}
+
+func (i TaskResource) scrapeTPDB(req *restful.Request, resp *restful.Response) {
+	var r RequestScrapeTPDB
+	err := req.ReadEntity(&r)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	if r.ApiToken != "" && r.SceneUrl != "" {
+		go tasks.ScrapeTPDB(strings.TrimSpace(r.ApiToken), strings.TrimSpace(r.SceneUrl))
+	}
 }
