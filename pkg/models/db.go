@@ -1,6 +1,8 @@
 package models
 
 import (
+	"strings"
+
 	"github.com/avast/retry-go/v3"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -107,7 +109,24 @@ func RemoveLock(lock string) {
 	common.PublishWS("lock.change", map[string]interface{}{"name": lock, "locked": false})
 }
 
+func RemoveAllLocks() {
+	db, _ := GetDB()
+	defer db.Close()
+
+	var locks []KV
+	err := db.Where("`key` like 'lock-%'").Find(&locks).Error
+	if err != nil {
+		return
+	}
+
+	for _, lock := range locks {
+		lockName := strings.Replace(lock.Key, "lock-", "", 1)
+		RemoveLock(lockName)
+	}
+}
+
 func init() {
 	common.InitPaths()
+	common.InitLogging()
 	parseDBConnString()
 }

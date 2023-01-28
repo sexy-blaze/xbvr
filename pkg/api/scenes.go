@@ -22,8 +22,11 @@ type RequestToggleList struct {
 }
 
 type RequestSceneCuepoint struct {
-	TimeStart float64 `json:"time_start"`
+	Track     *uint   `json:"track,omitempty"`
 	Name      string  `json:"name"`
+	TimeStart float64 `json:"time_start"`
+	TimeEnd   float64 `json:"time_end"`
+	Rating    float64 `json:"rating"`
 }
 
 type RequestSetSceneRating struct {
@@ -69,6 +72,7 @@ type ResponseGetFilters struct {
 	Sites         []string        `json:"sites"`
 	ReleaseMonths []string        `json:"release_month"`
 	Volumes       []models.Volume `json:"volumes"`
+	Attributes    []string        `json:"attributes"`
 }
 
 type SceneResource struct{}
@@ -177,6 +181,10 @@ func (i SceneResource) createCustomScene(req *restful.Request, resp *restful.Res
 		return
 	}
 
+	// Update search index with new scene
+	scenes := []models.Scene{resultingScene}
+	tasks.IndexScenes(&scenes)
+
 	resp.WriteHeaderAndEntity(http.StatusOK, resultingScene)
 }
 
@@ -284,12 +292,101 @@ func (i SceneResource) getFilters(req *restful.Request, resp *restful.Response) 
 	var outVolumes []models.Volume
 	db.Model(&models.Volume{}).Find(&outVolumes)
 
+	// supported attributes
+	var outAttributes []string
+	outAttributes = append(outAttributes, "Multiple Video Files")
+	outAttributes = append(outAttributes, "Single Video File")
+	outAttributes = append(outAttributes, "Multiple Script Files")
+	outAttributes = append(outAttributes, "Single Script File")
+	outAttributes = append(outAttributes, "Has Hsp File")
+	outAttributes = append(outAttributes, "Is Favourite")
+	outAttributes = append(outAttributes, "Is Scripted")
+	outAttributes = append(outAttributes, "In Watchlist")
+	outAttributes = append(outAttributes, "Has Rating")
+	outAttributes = append(outAttributes, "Has Cuepoints")
+	outAttributes = append(outAttributes, "Has Simple Cuepoints")
+	outAttributes = append(outAttributes, "Has HSP Cuepoints")
+	outAttributes = append(outAttributes, "In Trailer List")
+	outAttributes = append(outAttributes, "Rating 0")
+	outAttributes = append(outAttributes, "Rating .5")
+	outAttributes = append(outAttributes, "Rating 1")
+	outAttributes = append(outAttributes, "Rating 1.5")
+	outAttributes = append(outAttributes, "Rating 2")
+	outAttributes = append(outAttributes, "Rating 2.5")
+	outAttributes = append(outAttributes, "Rating 3")
+	outAttributes = append(outAttributes, "Rating 3.5")
+	outAttributes = append(outAttributes, "Rating 4")
+	outAttributes = append(outAttributes, "Rating 4.5")
+	outAttributes = append(outAttributes, "Rating 5")
+	outAttributes = append(outAttributes, "Cast 1")
+	outAttributes = append(outAttributes, "Cast 2")
+	outAttributes = append(outAttributes, "Cast 3")
+	outAttributes = append(outAttributes, "Cast 4")
+	outAttributes = append(outAttributes, "Cast 5")
+	outAttributes = append(outAttributes, "Cast 6+")
+	outAttributes = append(outAttributes, "Flat video")
+	outAttributes = append(outAttributes, "FOV: 180°")
+	outAttributes = append(outAttributes, "FOV: 190°")
+	outAttributes = append(outAttributes, "FOV: 200°")
+	outAttributes = append(outAttributes, "FOV: 220°")
+	outAttributes = append(outAttributes, "FOV: 360°")
+	outAttributes = append(outAttributes, "Projection Perspective")
+	outAttributes = append(outAttributes, "Projection Equirectangular")
+	outAttributes = append(outAttributes, "Projection Equirectangular360")
+	outAttributes = append(outAttributes, "Projection Fisheye")
+	outAttributes = append(outAttributes, "Mono")
+	outAttributes = append(outAttributes, "Top/Bottom")
+	outAttributes = append(outAttributes, "Side by Side")
+	outAttributes = append(outAttributes, "MKX200")
+	outAttributes = append(outAttributes, "MKX220")
+	outAttributes = append(outAttributes, "VRCA220")
+	type Results struct {
+		Result string
+	}
+	var results []Results
+	// resolutions
+	switch db.Dialect().GetName() {
+	case "mysql":
+		db.Table("files").Select("distinct case when  video_projection = '360_tb' then (video_width+499)*2 div 1000 else (video_width+499) div 1000 end as result").
+			Where("`type`='video'").
+			Order("case when  video_projection = '360_tb' then (video_width+499)*2 div 1000 else (video_width+499) div 1000 end").
+			Find(&results)
+
+	case "sqlite3":
+		db.Table("files").Select("distinct case when video_projection = '360_tb' then (video_width+499)*2 / 1000 else (video_width+499) / 1000 end as result").
+			Where("`type`='video'").
+			Order("case when video_projection = '360_tb' then (video_width+499)*2 / 1000 else (video_width+499) / 1000 end").
+			Find(&results)
+	}
+
+	for _, r := range results {
+		outAttributes = append(outAttributes, "Resolution "+r.Result+"K")
+	}
+
+	// frame rates
+	db.Table("files").Select("distinct video_avg_frame_rate_val as result").
+		Where("`type`='video'").
+		Order("video_avg_frame_rate_val").
+		Find(&results)
+	for _, r := range results {
+		outAttributes = append(outAttributes, "Frame Rate "+r.Result+" fps")
+	}
+
+	// codec
+	db.Table("files").Select("distinct video_codec_name as result").
+		Where("`type`='video'").
+		Order("video_codec_name").
+		Find(&results)
+	for _, r := range results {
+		outAttributes = append(outAttributes, "Codec "+r.Result)
+	}
 	resp.WriteHeaderAndEntity(http.StatusOK, ResponseGetFilters{
 		Tags:          outTags,
 		Cast:          outCast,
 		Sites:         outSites,
 		ReleaseMonths: outRelease,
 		Volumes:       outVolumes,
+		Attributes:    outAttributes,
 	})
 }
 
@@ -346,6 +443,10 @@ func (i SceneResource) toggleList(req *restful.Request, resp *restful.Response) 
 		scene.Watchlist = !scene.Watchlist
 	}
 
+	if r.List == "trailerlist" {
+		scene.Trailerlist = !scene.Trailerlist
+	}
+
 	if r.List == "favourite" {
 		scene.Favourite = !scene.Favourite
 	}
@@ -358,6 +459,9 @@ func (i SceneResource) toggleList(req *restful.Request, resp *restful.Response) 
 		scene.IsWatched = !scene.IsWatched
 	}
 
+	if r.List == "is_hidden" {
+		scene.IsHidden = !scene.IsHidden
+	}
 	scene.Save()
 }
 
@@ -376,7 +480,7 @@ func (i SceneResource) searchSceneIndex(req *restful.Request, resp *restful.Resp
 	query := bleve.NewQueryStringQuery(q)
 
 	searchRequest := bleve.NewSearchRequest(query)
-	searchRequest.Fields = []string{"fulltext"}
+	searchRequest.Fields = []string{"Id", "title", "cast", "site", "description"}
 	searchRequest.IncludeLocations = true
 	searchRequest.From = 0
 	searchRequest.Size = 25
@@ -424,7 +528,10 @@ func (i SceneResource) addSceneCuepoint(req *restful.Request, resp *restful.Resp
 		t := models.SceneCuepoint{
 			SceneID:   scene.ID,
 			TimeStart: r.TimeStart,
+			TimeEnd:   r.TimeEnd,
 			Name:      r.Name,
+			Track:     r.Track,
+			Rating:    r.Rating,
 		}
 		t.Save()
 
@@ -593,33 +700,7 @@ func (i SceneResource) editScene(req *restful.Request, resp *restful.Response) {
 			models.AddAction(scene.SceneID, "edit", "is_multipart", strconv.FormatBool(r.IsMultipart))
 		}
 
-		var diffs []string
-
-		newTags := make([]models.Tag, 0)
-		for _, v := range r.Tags {
-			nt := models.Tag{}
-			tagClean := models.ConvertTag(v)
-			if tagClean != "" {
-				db.Where(&models.Tag{Name: tagClean}).FirstOrCreate(&nt)
-				newTags = append(newTags, nt)
-			}
-		}
-
-		diffs = deep.Equal(scene.Tags, newTags)
-		if len(diffs) > 0 {
-			exactDifferences := getTagDifferences(scene.Tags, newTags)
-			for _, v := range exactDifferences {
-				models.AddAction(scene.SceneID, "edit", "tags", v)
-			}
-
-			for _, v := range scene.Tags {
-				db.Model(&scene).Association("Tags").Delete(&v)
-			}
-
-			for _, v := range newTags {
-				db.Model(&scene).Association("Tags").Append(&v)
-			}
-		}
+		ProcessTagChanges(&scene, &r.Tags, db)
 
 		newCast := make([]models.Actor, 0)
 		for _, v := range r.Cast {
@@ -628,7 +709,7 @@ func (i SceneResource) editScene(req *restful.Request, resp *restful.Response) {
 			newCast = append(newCast, nc)
 		}
 
-		diffs = deep.Equal(scene.Cast, newCast)
+		diffs := deep.Equal(scene.Cast, newCast)
 		if len(diffs) > 0 {
 			exactDifferences := getCastDifferences(scene.Cast, newCast)
 			for _, v := range exactDifferences {
@@ -645,6 +726,10 @@ func (i SceneResource) editScene(req *restful.Request, resp *restful.Response) {
 		}
 
 		scene.Save()
+
+		// Update search index with new data
+		scenes := []models.Scene{scene}
+		tasks.IndexScenes(&scenes)
 
 		resp.WriteHeaderAndEntity(http.StatusOK, scene)
 	}
@@ -698,4 +783,33 @@ func castContains(arr []models.Actor, val interface{}) bool {
 		}
 	}
 	return false
+}
+func ProcessTagChanges(scene *models.Scene, tags *[]string, db *gorm.DB) {
+	var diffs []string
+
+	newTags := make([]models.Tag, 0)
+	for _, v := range *tags {
+		nt := models.Tag{}
+		tagClean := models.ConvertTag(v)
+		if tagClean != "" {
+			db.Where(&models.Tag{Name: tagClean}).FirstOrCreate(&nt)
+			newTags = append(newTags, nt)
+		}
+	}
+
+	diffs = deep.Equal(scene.Tags, newTags)
+	if len(diffs) > 0 {
+		exactDifferences := getTagDifferences(scene.Tags, newTags)
+		for _, v := range exactDifferences {
+			models.AddAction(scene.SceneID, "edit", "tags", v)
+		}
+
+		for _, v := range scene.Tags {
+			db.Model(&scene).Association("Tags").Delete(&v)
+		}
+
+		for _, v := range newTags {
+			db.Model(&scene).Association("Tags").Append(&v)
+		}
+	}
 }

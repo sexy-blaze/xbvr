@@ -30,6 +30,7 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 		sc.Site = siteID
 		sc.Title = ""
 		sc.HomepageURL = strings.Split(e.Request.URL.String(), "?")[0]
+		sc.MembersUrl = strings.Replace(sc.HomepageURL, "https://www.naughtyamerica.com/", "https://members.naughtyamerica.com/", 1)
 
 		// Scene ID - get from URL
 		tmp := strings.Split(sc.HomepageURL, "-")
@@ -54,6 +55,9 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 			}
 		})
 
+		// trailer details
+		sc.TrailerType = "url"
+
 		// Filenames & Covers
 		// There's a different video element for the four most recent scenes
 		// New video element
@@ -66,7 +70,7 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 			baseName := base[5] + base[6]
 			defaultBaseName := "nam" + base[6]
 
-			filenames := []string{"_180x180_3dh.mp4", "_smartphonevr60.mp4", "_smartphonevr30.mp4", "_vrdesktopsd.mp4", "_vrdesktophd.mp4", "_180_sbs.mp4", "_6kvr264.mp4", "_6kvr265.mp4"}
+			filenames := []string{"_180x180_3dh.mp4", "_smartphonevr60.mp4", "_smartphonevr30.mp4", "_vrdesktopsd.mp4", "_vrdesktophd.mp4", "_180_sbs.mp4", "_6kvr264.mp4", "_6kvr265.mp4", "_8kvr265.mp4"}
 
 			for i := range filenames {
 				sc.Filenames = append(sc.Filenames, baseName+filenames[i], defaultBaseName+filenames[i])
@@ -79,6 +83,7 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 			base[8] = "vertical"
 			base[9] = "1182x1788c.jpg"
 			sc.Covers = append(sc.Covers, "https://"+strings.Join(base, "/"))
+			sc.TrailerSrc = `https://videos.naughtycdn.com/` + base[5] + `/trailers/vr/` + base[5] + base[6] + `/` + base[5] + base[6] + `teaser_vrdesktophd.mp4`
 		})
 		// Old video element
 		e.ForEach(`a.play-trailer img.start-card.desktop-only`, func(id int, e *colly.HTMLElement) {
@@ -94,7 +99,7 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 			baseName := base[5] + base[6]
 			defaultBaseName := "nam" + base[6]
 
-			filenames := []string{"_180x180_3dh.mp4", "_smartphonevr60.mp4", "_smartphonevr30.mp4", "_vrdesktopsd.mp4", "_vrdesktophd.mp4", "_180_sbs.mp4", "_6kvr264.mp4", "_6kvr265.mp4"}
+			filenames := []string{"_180x180_3dh.mp4", "_smartphonevr60.mp4", "_smartphonevr30.mp4", "_vrdesktopsd.mp4", "_vrdesktophd.mp4", "_180_sbs.mp4", "_6kvr264.mp4", "_6kvr265.mp4", "_8kvr265.mp4"}
 
 			for i := range filenames {
 				sc.Filenames = append(sc.Filenames, baseName+filenames[i], defaultBaseName+filenames[i])
@@ -107,6 +112,7 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 			base[8] = "vertical"
 			base[9] = "1182x1788c.jpg"
 			sc.Covers = append(sc.Covers, "https://"+strings.Join(base, "/"))
+			sc.TrailerSrc = `https://videos.naughtycdn.com/` + base[5] + `/trailers/vr/` + base[5] + base[6] + `/` + base[5] + base[6] + `teaser_vrdesktophd.mp4`
 		})
 
 		// Gallery
@@ -171,5 +177,5 @@ func NaughtyAmericaVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string,
 }
 
 func init() {
-	registerScraper("naughtyamericavr", "NaughtyAmerica VR", "https://pbs.twimg.com/profile_images/1176909015369965569/Kr31SHCL_200x200.jpg", NaughtyAmericaVR)
+	registerScraper("naughtyamericavr", "NaughtyAmerica VR", "https://mcdn.vrporn.com/files/20170718100937/naughtyamericavr-vr-porn-studio-vrporn.com-virtual-reality.png", NaughtyAmericaVR)
 }

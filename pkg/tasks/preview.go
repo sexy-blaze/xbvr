@@ -15,10 +15,11 @@ import (
 	"github.com/xbapps/xbvr/pkg/models"
 )
 
-func GeneratePreviews() {
+func GeneratePreviews(endTime *time.Time) {
 	if !models.CheckLock("previews") {
 		models.CreateLock("previews")
-
+		defer models.RemoveLock("previews")
+		log.Infof("Generating previews")
 		db, _ := models.GetDB()
 		defer db.Close()
 
@@ -28,14 +29,18 @@ func GeneratePreviews() {
 		for _, scene := range scenes {
 			files, _ := scene.GetFiles()
 			if len(files) > 0 {
+				if endTime != nil && time.Now().After(*endTime) {
+					return
+				}
 				i := 0
-				for files[i].Exists() {
+				for i < len(files) && files[i].Exists() {
 					if files[i].Type == "video" {
 						log.Infof("Rendering %v", scene.SceneID)
 						destFile := filepath.Join(common.VideoPreviewDir, scene.SceneID+".mp4")
 						err := RenderPreview(
 							files[i].GetPath(),
 							destFile,
+							files[i].VideoProjection,
 							config.Config.Library.Preview.StartTime,
 							config.Config.Library.Preview.SnippetLength,
 							config.Config.Library.Preview.SnippetAmount,
@@ -55,17 +60,16 @@ func GeneratePreviews() {
 			}
 		}
 	}
-
-	models.RemoveLock("previews")
+	log.Infof("Previews generated")
 }
 
-func RenderPreview(inputFile string, destFile string, startTime int, snippetLength float64, snippetAmount int, resolution int, extraSnippet bool) error {
+func RenderPreview(inputFile string, destFile string, videoProjection string, startTime int, snippetLength float64, snippetAmount int, resolution int, extraSnippet bool) error {
 	tmpPath := filepath.Join(common.VideoPreviewDir, "tmp")
 	os.MkdirAll(tmpPath, os.ModePerm)
 	defer os.RemoveAll(tmpPath)
 
 	// Get video duration
-	ffdata, err := ffprobe.GetProbeData(inputFile, time.Second*3)
+	ffdata, err := ffprobe.GetProbeData(inputFile, time.Second*10)
 	if err != nil {
 		return err
 	}
@@ -75,6 +79,9 @@ func RenderPreview(inputFile string, destFile string, startTime int, snippetLeng
 	crop := "iw/2:ih:iw/2:ih" // LR videos
 	if vs.Height == vs.Width {
 		crop = "iw/2:ih/2:iw/4:ih/2" // TB videos
+	}
+	if videoProjection == "flat" {
+		crop = "iw:ih:iw:ih" // LR videos
 	}
 	// Mono 360 crop args: (no way of accurately determining)
 	// "iw/2:ih:iw/4:ih"

@@ -86,6 +86,10 @@ func TwoWebMediaSite(wg *sync.WaitGroup, updateSite bool, knownScenes []string, 
 			}
 		})
 
+		// trailer details
+		sc.TrailerType = "deovr"
+		sc.TrailerSrc = strings.Replace(URL, `/videos/`, ``, 1) + `/deovr/video/` + sc.SiteID
+
 		// Cast & Tags
 		// Note: Cast/Tags links are currently all inside the same div element...
 		e.ForEach(`div.container.pt-5 p.text-muted > a`, func(id int, e *colly.HTMLElement) {
@@ -187,5 +191,5 @@ func ZexyVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 
 func init() {
 	registerScraper("wankitnowvr", "WankitNowVR", "https://mcdn.vrporn.com/files/20190103150250/wankitnow-profile.jpg", WankitNowVR)
-	registerScraper("zexyvr", "ZexyVR", "https://mcdn.vrporn.com/files/20190103151557/zexyvr-profile.jpg", ZexyVR)
+	registerScraper("zexyvr", "ZexyVR", "https://mcdn.vrporn.com/files/20210617065837/zexyvr-profile-400x400.jpg", ZexyVR)
 }

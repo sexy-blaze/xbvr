@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"strings"
@@ -83,6 +84,12 @@ func VRPorn(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 			sc.Cast = append(sc.Cast, strings.TrimSpace(e.Text))
 		})
 
+		// trailer details
+		sc.TrailerType = "scrape_html"
+		params := models.TrailerScrape{SceneUrl: sc.HomepageURL, HtmlElement: "dl8-video source", ContentPath: "src", QualityPath: "quality"}
+		strParams, _ := json.Marshal(params)
+		sc.TrailerSrc = string(strParams)
+
 		// Release Date
 		date := dateRegEx.FindStringSubmatch(e.ChildText(`div.content-box.posted-by-box.posted-by-box-sub span.footer-titles`))[1]
 		if len(date) > 0 {
@@ -111,7 +118,7 @@ func VRPorn(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 		siteCollector.Visit(pageURL)
 	})
 
-	siteCollector.OnHTML(`article.tax-studio div.tube-post a`, func(e *colly.HTMLElement) {
+	siteCollector.OnHTML(`body.tax-studio article.post div.tube-post a`, func(e *colly.HTMLElement) {
 		sceneURL := e.Request.AbsoluteURL(e.Attr("href"))
 		// If scene exists in database, there's no need to scrape
 		if !funk.ContainsString(knownScenes, sceneURL) {
@@ -119,7 +126,7 @@ func VRPorn(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 		}
 	})
 
-	siteCollector.Visit("https://vrporn.com/studio/" + scraperID)
+	siteCollector.Visit("https://vrporn.com/studio/" + scraperID + "/?sort=newest")
 
 	if updateSite {
 		updateSiteLastUpdate(scraperID)
@@ -135,9 +142,8 @@ func addVRPornScraper(id string, name string, company string, avatarURL string) 
 }
 
 func init() {
-	addVRPornScraper("evileyevr", "EvilEyeVR", "EvilEyeVR", "https://mcdn.vrporn.com/files/20190605151715/evileyevr-logo.jpg")
+	//addVRPornScraper("evileyevr", "EvilEyeVR", "EvilEyeVR", "https://mcdn.vrporn.com/files/20190605151715/evileyevr-logo.jpg")
 	addVRPornScraper("randysroadstop", "Randy's Road Stop", "NaughtyAmerica", "https://mcdn.vrporn.com/files/20170718073527/randysroadstop-vr-porn-studio-vrporn.com-virtual-reality.png")
 	addVRPornScraper("realteensvr", "Real Teens VR", "NaughtyAmerica", "https://mcdn.vrporn.com/files/20170718063811/realteensvr-vr-porn-studio-vrporn.com-virtual-reality.png")
-	addVRPornScraper("tonightsgirlfriend", "Tonight's Girlfriend VR", "NaughtyAmerica", "https://mcdn.vrporn.com/files/20200404124349/TNGF_LOGO_BLK.jpg")
 	addVRPornScraper("vrclubz", "VRClubz", "VixenVR", "https://mcdn.vrporn.com/files/20200421094123/vrclubz_logo_NEW-400x400_webwhite.png")
 }

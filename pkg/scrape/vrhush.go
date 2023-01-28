@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"encoding/json"
 	"net/url"
 	"regexp"
 	"strings"
@@ -30,6 +31,7 @@ func VRHush(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 		sc.Studio = "VRHush"
 		sc.Site = siteID
 		sc.HomepageURL = strings.Split(e.Request.URL.String(), "?")[0]
+		sc.MembersUrl = strings.Replace(sc.HomepageURL, "https://vrhush.com/scenes/", "https://ma.vrhush.com/scene/", 1)
 
 		// Scene ID - get from URL
 		tmp := strings.Split(sc.HomepageURL, "/")
@@ -85,6 +87,12 @@ func VRHush(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 
 		// Duration
 		sc.Duration = 0
+
+		// trailer details
+		sc.TrailerType = "scrape_html"
+		params := models.TrailerScrape{SceneUrl: sc.HomepageURL, HtmlElement: "deo-video source", ContentPath: "src", QualityPath: "quality", ContentBaseUrl: "https:"}
+		strParams, _ := json.Marshal(params)
+		sc.TrailerSrc = string(strParams)
 
 		// Filenames
 		e.ForEach(`input.stream-input-box`, func(id int, e *colly.HTMLElement) {

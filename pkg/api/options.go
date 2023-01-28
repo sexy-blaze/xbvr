@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -39,9 +40,15 @@ type VersionCheckResponse struct {
 }
 
 type RequestSaveOptionsWeb struct {
-	TagSort     string `json:"tagSort"`
-	SceneEdit   bool   `json:"sceneEdit"`
-	UpdateCheck bool   `json:"updateCheck"`
+	TagSort          string `json:"tagSort"`
+	SceneWatchlist   bool   `json:"sceneWatchlist"`
+	SceneFavourite   bool   `json:"sceneFavourite"`
+	SceneWatched     bool   `json:"sceneWatched"`
+	SceneEdit        bool   `json:"sceneEdit"`
+	SceneCuepoint    bool   `json:"sceneCuepoint"`
+	ShowHspFile      bool   `json:"showHspFile"`
+	SceneTrailerlist bool   `json:"sceneTrailerlist"`
+	UpdateCheck      bool   `json:"updateCheck"`
 }
 
 type RequestSaveOptionsDLNA struct {
@@ -52,12 +59,25 @@ type RequestSaveOptionsDLNA struct {
 }
 
 type RequestSaveOptionsDeoVR struct {
-	Enabled        bool   `json:"enabled"`
-	AuthEnabled    bool   `json:"auth_enabled"`
-	Username       string `json:"username"`
-	Password       string `json:"password"`
-	RemoteEnabled  bool   `json:"remote_enabled"`
-	RenderHeatmaps bool   `json:"render_heatmaps"`
+	Enabled                 bool   `json:"enabled"`
+	AuthEnabled             bool   `json:"auth_enabled"`
+	Username                string `json:"username"`
+	Password                string `json:"password"`
+	RemoteEnabled           bool   `json:"remote_enabled"`
+	TrackWatchTime          bool   `json:"track_watch_time"`
+	RenderHeatmaps          bool   `json:"render_heatmaps"`
+	AllowFileDeletes        bool   `json:"allow_file_deletes"`
+	AllowRatingUpdates      bool   `json:"allow_rating_updates"`
+	AllowFavoriteUpdates    bool   `json:"allow_favorite_updates"`
+	AllowHspData            bool   `json:"allow_hsp_data"`
+	AllowTagUpdates         bool   `json:"allow_tag_updates"`
+	AllowCuepointUpdates    bool   `json:"allow_cuepoint_updates"`
+	AllowWatchlistUpdates   bool   `json:"allow_watchlist_updates"`
+	MultitrackCuepoints     bool   `json:"multitrack_cuepoints"`
+	VideoSortSeq            string `json:"video_sort_seq"`
+	ScriptSortSeq           string `json:"script_sort_seq"`
+	MultitrackCastCuepoints bool   `json:"multitrack_cast_cuepoints"`
+	RetainNonHSPCuepoints   bool   `json:"retain_non_hsp_cuepoints"`
 }
 
 type RequestSaveOptionsPreviews struct {
@@ -79,6 +99,34 @@ type GetFunscriptCountResponse struct {
 	Updated int64 `json:"updated"`
 }
 
+type RequestSaveOptionsTaskSchedule struct {
+	RescrapeEnabled      bool `json:"rescrapeEnabled"`
+	RescrapeHourInterval int  `json:"rescrapeHourInterval"`
+	RescrapeUseRange     bool `json:"rescrapeUseRange"`
+	RescrapeMinuteStart  int  `json:"rescrapeMinuteStart"`
+	RescrapeHourStart    int  `json:"rescrapeHourStart"`
+	RescrapeHourEnd      int  `json:"rescrapeHourEnd"`
+	RescrapeStartDelay   int  `json:"rescrapeStartDelay"`
+	RescanEnabled        bool `json:"rescanEnabled"`
+	RescanHourInterval   int  `json:"rescanHourInterval"`
+	RescanUseRange       bool `json:"rescanUseRange"`
+	RescanMinuteStart    int  `json:"rescanMinuteStart"`
+	RescanHourStart      int  `json:"rescanHourStart"`
+	RescanHourEnd        int  `json:"rescanHourEnd"`
+	RescanStartDelay     int  `json:"rescanStartDelay"`
+	PreviewEnabled       bool `json:"previewEnabled"`
+	PreviewHourInterval  int  `json:"previewHourInterval"`
+	PreviewUseRange      bool `json:"previewUseRange"`
+	PreviewMinuteStart   int  `json:"previewMinuteStart"`
+	PreviewHourStart     int  `json:"previewHourStart"`
+	PreviewHourEnd       int  `json:"previewHourEnd"`
+	PreviewStartDelay    int  `json:"previewStartDelay"`
+}
+
+type RequestCuepointsResponse struct {
+	Positions []string `json:"positions"`
+	Actions   []string `json:"actions"`
+}
 type ConfigResource struct{}
 
 func (i ConfigResource) WebService() *restful.WebService {
@@ -148,6 +196,12 @@ func (i ConfigResource) WebService() *restful.WebService {
 	ws.Route(ws.GET("/funscripts/count").To(i.getFunscriptsCount).
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
+	ws.Route(ws.POST("/task-schedule").To(i.saveOptionsTaskSchedule).
+		Metadata(restfulspec.KeyOpenAPITags, tags))
+
+	// "Cuepoints section endpoints"
+	ws.Route(ws.GET("/cuepoints").To(i.getDefaultCuepoints).
+		Metadata(restfulspec.KeyOpenAPITags, tags))
 	return ws
 }
 
@@ -228,7 +282,13 @@ func (i ConfigResource) saveOptionsWeb(req *restful.Request, resp *restful.Respo
 	}
 
 	config.Config.Web.TagSort = r.TagSort
+	config.Config.Web.SceneWatchlist = r.SceneWatchlist
+	config.Config.Web.SceneFavourite = r.SceneFavourite
+	config.Config.Web.SceneWatched = r.SceneWatched
 	config.Config.Web.SceneEdit = r.SceneEdit
+	config.Config.Web.SceneCuepoint = r.SceneCuepoint
+	config.Config.Web.ShowHspFile = r.ShowHspFile
+	config.Config.Web.SceneTrailerlist = r.SceneTrailerlist
 	config.Config.Web.UpdateCheck = r.UpdateCheck
 	config.SaveConfig()
 
@@ -247,7 +307,20 @@ func (i ConfigResource) saveOptionsDeoVR(req *restful.Request, resp *restful.Res
 	config.Config.Interfaces.DeoVR.AuthEnabled = r.AuthEnabled
 	config.Config.Interfaces.DeoVR.RenderHeatmaps = r.RenderHeatmaps
 	config.Config.Interfaces.DeoVR.RemoteEnabled = r.RemoteEnabled
+	config.Config.Interfaces.DeoVR.TrackWatchTime = r.TrackWatchTime
 	config.Config.Interfaces.DeoVR.Username = r.Username
+	config.Config.Interfaces.Heresphere.AllowFileDeletes = r.AllowFileDeletes
+	config.Config.Interfaces.Heresphere.AllowRatingUpdates = r.AllowRatingUpdates
+	config.Config.Interfaces.Heresphere.AllowFavoriteUpdates = r.AllowFavoriteUpdates
+	config.Config.Interfaces.Heresphere.AllowHspData = r.AllowHspData
+	config.Config.Interfaces.Heresphere.AllowTagUpdates = r.AllowTagUpdates
+	config.Config.Interfaces.Heresphere.AllowCuepointUpdates = r.AllowCuepointUpdates
+	config.Config.Interfaces.Heresphere.AllowWatchlistUpdates = r.AllowWatchlistUpdates
+	config.Config.Interfaces.Heresphere.MultitrackCuepoints = r.MultitrackCuepoints
+	config.Config.Interfaces.Players.VideoSortSeq = r.VideoSortSeq
+	config.Config.Interfaces.Players.ScriptSortSeq = r.ScriptSortSeq
+	config.Config.Interfaces.Heresphere.MultitrackCastCuepoints = r.MultitrackCastCuepoints
+	config.Config.Interfaces.Heresphere.RetainNonHSPCuepoints = r.RetainNonHSPCuepoints
 	if r.Password != config.Config.Interfaces.DeoVR.Password && r.Password != "" {
 		hash, _ := bcrypt.GenerateFromPassword([]byte(r.Password), bcrypt.DefaultCost)
 		config.Config.Interfaces.DeoVR.Password = string(hash)
@@ -365,7 +438,8 @@ func (i ConfigResource) removeStorage(req *restful.Request, resp *restful.Respon
 	// Inform UI about state change
 	common.PublishWS("state.change.optionsStorage", nil)
 
-	tasks.RescanVolumes()
+	tasks.RescanVolumes(-1)
+	tasks.RefreshSceneStatuses()
 
 	log.WithField("task", "rescan").Info("Removed storage", vol.Path)
 
@@ -533,6 +607,7 @@ func (i ConfigResource) generateTestPreview(req *restful.Request, resp *restful.
 			tasks.RenderPreview(
 				files[0].GetPath(),
 				destFile,
+				files[0].VideoProjection,
 				r.StartTime,
 				r.SnippetLength,
 				r.SnippetAmount,
@@ -570,4 +645,65 @@ func (i ConfigResource) getFunscriptsCount(req *restful.Request, resp *restful.R
 	}
 
 	resp.WriteHeaderAndEntity(http.StatusOK, r)
+}
+
+func (i ConfigResource) saveOptionsTaskSchedule(req *restful.Request, resp *restful.Response) {
+	var r RequestSaveOptionsTaskSchedule
+	err := req.ReadEntity(&r)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	if r.RescrapeHourEnd > 23 {
+		r.RescrapeHourEnd -= 24
+	}
+	if r.RescanHourEnd > 23 {
+		r.RescanHourEnd -= 24
+	}
+	if r.PreviewHourEnd > 23 {
+		r.PreviewHourEnd -= 24
+	}
+
+	config.Config.Cron.RescrapeSchedule.Enabled = r.RescrapeEnabled
+	config.Config.Cron.RescrapeSchedule.HourInterval = r.RescrapeHourInterval
+	config.Config.Cron.RescrapeSchedule.UseRange = r.RescrapeUseRange
+	config.Config.Cron.RescrapeSchedule.MinuteStart = r.RescrapeMinuteStart
+	config.Config.Cron.RescrapeSchedule.HourStart = r.RescrapeHourStart
+	config.Config.Cron.RescrapeSchedule.HourEnd = r.RescrapeHourEnd
+	config.Config.Cron.RescrapeSchedule.RunAtStartDelay = r.RescrapeStartDelay
+
+	config.Config.Cron.RescanSchedule.Enabled = r.RescanEnabled
+	config.Config.Cron.RescanSchedule.HourInterval = r.RescanHourInterval
+	config.Config.Cron.RescanSchedule.UseRange = r.RescanUseRange
+	config.Config.Cron.RescanSchedule.MinuteStart = r.RescanMinuteStart
+	config.Config.Cron.RescanSchedule.HourStart = r.RescanHourStart
+	config.Config.Cron.RescanSchedule.HourEnd = r.RescanHourEnd
+	config.Config.Cron.RescanSchedule.RunAtStartDelay = r.RescanStartDelay
+
+	config.Config.Cron.PreviewSchedule.Enabled = r.PreviewEnabled
+	config.Config.Cron.PreviewSchedule.HourInterval = r.PreviewHourInterval
+	config.Config.Cron.PreviewSchedule.UseRange = r.PreviewUseRange
+	config.Config.Cron.PreviewSchedule.MinuteStart = r.PreviewMinuteStart
+	config.Config.Cron.PreviewSchedule.HourStart = r.PreviewHourStart
+	config.Config.Cron.PreviewSchedule.HourEnd = r.PreviewHourEnd
+	config.Config.Cron.PreviewSchedule.RunAtStartDelay = r.PreviewStartDelay
+
+	config.SaveConfig()
+
+	resp.WriteHeaderAndEntity(http.StatusOK, r)
+
+}
+
+func (i ConfigResource) getDefaultCuepoints(req *restful.Request, resp *restful.Response) {
+	db, _ := models.GetDB()
+	defer db.Close()
+
+	var kv models.KV
+	kv.Key = "cuepoints"
+	db.Find(&kv)
+
+	var cp RequestCuepointsResponse
+	json.Unmarshal([]byte(kv.Value), &cp)
+	resp.WriteHeaderAndEntity(http.StatusOK, &cp)
 }

@@ -2,12 +2,13 @@ package common
 
 import (
 	"context"
+	"io"
 	"os"
-	"runtime"
 
 	"github.com/gammazero/nexus/v3/client"
+	"github.com/shiena/ansicolor"
 	"github.com/sirupsen/logrus"
-	"github.com/x-cray/logrus-prefixed-formatter"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
 var Log = *logrus.New()
@@ -45,18 +46,24 @@ func (hook *WampHook) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
-func init() {
-	Log.Out = os.Stdout
+func InitLogging() {
+	//	Log.Out = os.Stdout
 	Log.SetLevel(logrus.InfoLevel)
 	if EnvConfig.Debug {
 		Log.SetLevel(logrus.DebugLevel)
 	}
 
-	if runtime.GOOS == "windows" {
-		Log.Formatter = &prefixed.TextFormatter{
-			DisableColors: true,
-		}
+	Log.Formatter = &prefixed.TextFormatter{
+		ForceColors: true,
+	}
+
+	//	create / open log file in AppDir folder
+	lfile, err := os.OpenFile(AppDir+"/xbvr.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err == nil {
+		//		defer lfile.Close()
+		mw := io.MultiWriter(lfile, os.Stdout)
+		Log.Out = ansicolor.NewAnsiColorWriter(mw)
 	} else {
-		Log.Formatter = &prefixed.TextFormatter{}
+		Log.Info("Failed to log to file, using default stderr")
 	}
 }

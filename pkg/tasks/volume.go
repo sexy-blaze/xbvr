@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -24,24 +25,28 @@ import (
 
 var allowedVideoExt = []string{".mp4", ".avi", ".wmv", ".mpeg4", ".mov", ".mkv"}
 
-func RescanVolumes() {
+func RescanVolumes(id int) {
 	if !models.CheckLock("rescan") {
 		models.CreateLock("rescan")
+		defer models.RemoveLock("rescan")
+
+		tlog := log.WithFields(logrus.Fields{"task": "rescan"})
+		tlog.Infof("Start scanning volumes")
 
 		models.CheckVolumes()
 
 		db, _ := models.GetDB()
 		defer db.Close()
 
-		tlog := log.WithFields(logrus.Fields{"task": "rescan"})
-
-		tlog.Infof("Start scanning volumes")
-
 		var vol []models.Volume
-		db.Find(&vol)
+		if id > 0 {
+			db.Where("id=?", id).Find(&vol)
+		} else {
+			db.Find(&vol)
+		}
 
 		for i := range vol {
-			log.Infof("Scanning %v", vol[i].Path)
+			tlog.Infof("Scanning %v", vol[i].Path)
 
 			switch vol[i].Type {
 			case "local":
@@ -68,7 +73,8 @@ func RescanVolumes() {
 			unescapedFilename := path.Base(files[i].Filename)
 			filename := escape(unescapedFilename)
 			filename2 := strings.Replace(filename, ".funscript", ".mp4", -1)
-			err := db.Where("filenames_arr LIKE ? OR filenames_arr LIKE ?", `%"`+filename+`"%`, `%"`+filename2+`"%`).Find(&scenes).Error
+			filename3 := strings.Replace(filename, ".hsp", ".mp4", -1)
+			err := db.Where("filenames_arr LIKE ? OR filenames_arr LIKE ? OR filenames_arr LIKE ?", `%"`+filename+`"%`, `%"`+filename2+`"%`, `%"`+filename3+`"%`).Find(&scenes).Error
 			if err != nil {
 				log.Error(err, " when matching "+unescapedFilename)
 			}
@@ -76,21 +82,11 @@ func RescanVolumes() {
 			if len(scenes) == 1 {
 				files[i].SceneID = scenes[0].ID
 				files[i].Save()
+				scenes[0].UpdateStatus()
 			}
 
 			if (i % 50) == 0 {
 				tlog.Infof("Matching Scenes to known filenames (%v/%v)", i+1, len(files))
-			}
-		}
-
-		// Update scene statuses
-		tlog.Infof("Update status of Scenes")
-		db.Model(&models.Scene{}).Find(&scenes)
-
-		for i := range scenes {
-			scenes[i].UpdateStatus()
-			if (i % 70) == 0 {
-				tlog.Infof("Update status of Scenes (%v/%v)", i+1, len(scenes))
 			}
 		}
 
@@ -134,8 +130,6 @@ func RescanVolumes() {
 		r = models.RequestSceneList{IsWatched: optional.NewBool(false), IsAvailable: optional.NewBool(true)}
 		common.AddMetricPoint("scenes_downloaded_unwatched", float64(models.QueryScenes(r, false).Results))
 	}
-
-	models.RemoveLock("rescan")
 }
 
 func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
@@ -143,7 +137,11 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 
 		var videoProcList []string
 		var scriptProcList []string
+		var hspProcList []string
 		_ = filepath.Walk(vol.Path, func(path string, f os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
 			if !f.Mode().IsDir() {
 				// Make sure the filename should be considered
 				path = strings.ReplaceAll(path, "fefb.dll", "_MKX200_FB360.mp4")
@@ -153,13 +151,16 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 					var fl models.File
 					err = db.Where(&models.File{Path: filepath.Dir(path), Filename: filepath.Base(path)}).First(&fl).Error
 
-					if err == gorm.ErrRecordNotFound || fl.VolumeID == 0 || fl.VideoDuration == 0 || fl.VideoProjection == "" || fl.Size != f.Size() {
+					if err == gorm.ErrRecordNotFound || fl.VolumeID == 0 || fl.VideoDuration == 0 || fl.VideoProjection == "" || fl.Size != f.Size() || fl.OsHash == "" {
 						videoProcList = append(videoProcList, path)
 					}
 				}
 
 				if !strings.HasPrefix(filepath.Base(path), ".") && filepath.Ext(path) == ".funscript" {
 					scriptProcList = append(scriptProcList, path)
+				}
+				if !strings.HasPrefix(filepath.Base(path), ".") && filepath.Ext(path) == ".hsp" {
+					hspProcList = append(hspProcList, path)
 				}
 			}
 			return nil
@@ -193,6 +194,11 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 			fl.UpdatedTime = fTimes.ModTime()
 			fl.VolumeID = vol.ID
 
+			hash, err := Hash(path)
+			if err == nil {
+				fl.OsHash = fmt.Sprintf("%x", hash)
+			}
+
 			ffdata, err := ffprobe.GetProbeData(path, time.Second*5)
 			if err != nil {
 				tlog.Error("Error running ffprobe", currPath, err)
@@ -218,9 +224,19 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 					if vs.Height*2 == vs.Width || vs.Width > vs.Height {
 						fl.VideoProjection = "180_sbs"
 						nameparts := filenameSeparator.Split(strings.ToLower(filepath.Base(path)), -1)
-						for _, part := range nameparts {
-							if part == "mkx200" || part == "mkx220" || part == "vrca220" {
+						for i, part := range nameparts {
+							if part == "mkx200" || part == "mkx220" || part == "rf52" || part == "fisheye190" || part == "vrca220" || part == "flat" {
 								fl.VideoProjection = part
+								break
+							} else if part == "fisheye" || part == "f180" || part == "180f" {
+								fl.VideoProjection = "fisheye"
+								break
+							} else if i < len(nameparts)-1 && (part+"_"+nameparts[i+1] == "mono_360" || part+"_"+nameparts[i+1] == "mono_180") {
+								fl.VideoProjection = nameparts[i+1] + "_mono"
+								break
+							} else if i < len(nameparts)-1 && (part+"_"+nameparts[i+1] == "360_mono" || part+"_"+nameparts[i+1] == "180_mono") {
+								fl.VideoProjection = part + "_mono"
+								break
 							}
 						}
 					}
@@ -271,15 +287,24 @@ func scanLocalVolume(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 			fl.Save()
 		}
 
+		for _, path := range hspProcList {
+			ScanLocalHspFile(path, vol.ID, 0)
+		}
+
 		vol.LastScan = time.Now()
 		vol.Save()
 
+		var scene models.Scene
 		// Check if files are still present at the location
 		allFiles := vol.Files()
 		for i := range allFiles {
 			if !allFiles[i].Exists() {
 				log.Info(allFiles[i].GetPath())
 				db.Delete(&allFiles[i])
+				if allFiles[i].SceneID != 0 {
+					scene.GetIfExistByPK(allFiles[i].SceneID)
+					scene.UpdateStatus()
+				}
 			}
 		}
 	}
@@ -319,6 +344,7 @@ func scanPutIO(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 				fl.CreatedTime = files[i].CreatedAt.Time
 				fl.UpdatedTime = files[i].UpdatedAt.Time
 				fl.VolumeID = vol.ID
+				fl.OsHash = files[i].OpensubtitlesHash
 				fl.Save()
 			}
 
@@ -326,12 +352,17 @@ func scanPutIO(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 		}
 	}
 
+	var scene models.Scene
 	// Check if local files are present in listing
 	allFiles := vol.Files()
 	for i := range allFiles {
 		if !funk.ContainsString(currentFileID, allFiles[i].Path) {
 			log.Info(allFiles[i].GetPath())
 			db.Delete(&allFiles[i])
+			if allFiles[i].SceneID != 0 {
+				scene.GetIfExistByPK(allFiles[i].SceneID)
+				scene.UpdateStatus()
+			}
 		}
 	}
 
@@ -340,4 +371,47 @@ func scanPutIO(vol models.Volume, db *gorm.DB, tlog *logrus.Entry) {
 	vol.Path = "Put.io (" + acct.Username + ")"
 	vol.LastScan = time.Now()
 	vol.Save()
+}
+func RefreshSceneStatuses() {
+	// refreshes the status of all scenes
+	tlog := log.WithFields(logrus.Fields{"task": "rescan"})
+	tlog.Infof("Update status of Scenes")
+	db, _ := models.GetDB()
+	defer db.Close()
+
+	var scenes []models.Scene
+	db.Model(&models.Scene{}).Find(&scenes)
+
+	for i := range scenes {
+		scenes[i].UpdateStatus()
+		if (i % 70) == 0 {
+			tlog.Infof("Update status of Scenes (%v/%v)", i+1, len(scenes))
+		}
+	}
+
+	tlog.Infof("Scene status refresh complete")
+}
+func ScanLocalHspFile(path string, volID uint, sceneId uint) {
+	db, _ := models.GetDB()
+	defer db.Close()
+
+	var fl models.File
+	db.Where(&models.File{
+		Path:     filepath.Dir(path),
+		Filename: filepath.Base(path),
+		Type:     "hsp",
+	}).FirstOrCreate(&fl)
+
+	fStat, _ := os.Stat(path)
+	fTimes, _ := times.Stat(path)
+
+	fl.Size = fStat.Size()
+	fl.CreatedTime = fTimes.ModTime()
+	fl.UpdatedTime = fTimes.ModTime()
+	fl.VolumeID = volID
+	if sceneId > 0 {
+		fl.SceneID = sceneId
+	}
+	fl.Save()
+
 }

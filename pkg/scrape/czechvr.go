@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,9 +27,10 @@ func CzechVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan
 		sc.Studio = "CzechVR"
 		sc.Site = siteID
 		sc.HomepageURL = strings.Split(e.Request.URL.String(), "?")[0]
+		sc.MembersUrl = strings.Replace(sc.HomepageURL, "https://www.czechvrnetwork.com/", "https://www.czechvrnetwork.com/members/", 1)
 
 		// Title
-		e.ForEach(`div.post div.nazev h2`, func(id int, e *colly.HTMLElement) {
+		e.ForEach(`div.post div.nazev h1`, func(id int, e *colly.HTMLElement) {
 			fullTitle := strings.TrimSpace(e.Text)
 			sc.Title = strings.Split(fullTitle, " - ")[1]
 			tmp := strings.Split(strings.Split(fullTitle, " - ")[0], " ")
@@ -49,8 +51,10 @@ func CzechVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan
 		})
 
 		// Synopsis
-		e.ForEach(`div.post div.textDetail`, func(id int, e *colly.HTMLElement) {
-			sc.Synopsis = strings.TrimSpace(e.Text)
+		//		e.ForEach(`div.post div.textDetail`, func(id int, e *colly.HTMLElement) {
+		//			sc.Synopsis = strings.TrimSpace(e.Text)
+		e.ForEach(`meta[name="description"]`, func(id int, e *colly.HTMLElement) {
+			sc.Synopsis = strings.TrimSpace(e.Attr("content"))
 		})
 
 		// Tags
@@ -77,6 +81,13 @@ func CzechVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan
 				sc.Duration = tmpDuration
 			}
 		})
+
+		// trailer details
+		sc.TrailerType = "heresphere"
+		//  extract internal id with (\d+)
+		var re = regexp.MustCompile(`(?m)https:\/\/www.czechvrnetwork.com\/detail-(\d+)`)
+		r := re.FindStringSubmatch(sc.HomepageURL)
+		sc.TrailerSrc = "https://www.czechvrnetwork.com/heresphere/videoID" + r[1]
 
 		// Filenames
 		e.ForEach(`div.post div.download a.trailer`, func(id int, e *colly.HTMLElement) {

@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"strings"
@@ -52,6 +53,12 @@ func SinsVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 				sc.Gallery = append(sc.Gallery, e.Attr(`href`))
 			}
 		})
+
+		// trailer details
+		sc.TrailerType = "scrape_html"
+		params := models.TrailerScrape{SceneUrl: sc.HomepageURL, HtmlElement: "dl8-video source", ContentPath: "src", QualityPath: "quality"}
+		strParams, _ := json.Marshal(params)
+		sc.TrailerSrc = string(strParams)
 
 		//Cast and Released
 		e.ForEach(`.video-detail__specs div.cell`, func(id int, e *colly.HTMLElement) {
@@ -112,8 +119,14 @@ func SinsVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 		}
 	})
 
-	siteCollector.OnHTML(`div.tn-video a`, func(e *colly.HTMLElement) {
-		sceneURL := e.Request.AbsoluteURL(e.Attr("href"))
+	siteCollector.OnHTML(`div.tn-video`, func(e *colly.HTMLElement) {
+		studio := e.ChildText("a.author")
+
+		if studio != "By: SinsVR" && studio != "By: Billie Star" {
+			return
+		}
+
+		sceneURL := e.Request.AbsoluteURL(e.ChildAttr("a.tn-video-name", "href"))
 
 		// If scene exist in database, there's no need to scrape
 		if !funk.ContainsString(knownScenes, sceneURL) && strings.Contains(sceneURL, "/video") && !strings.Contains(sceneURL, "/join") {
@@ -122,6 +135,7 @@ func SinsVR(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out chan<
 	})
 
 	siteCollector.Visit("https://xsinsvr.com/studio/sinsvr/videos")
+	siteCollector.Visit("https://xsinsvr.com/studio/billie-star/videos")
 
 	if updateSite {
 		updateSiteLastUpdate(scraperID)

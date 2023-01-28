@@ -14,11 +14,17 @@
           <b-radio-button v-model="dlState" native-value="available" size="is-small">
             {{$t("Available right now")}} ({{counts.available}})
           </b-radio-button>
+          <b-radio-button v-model="dlState" native-value="notAvailable" size="is-small">
+            {{$t("Not available")}} ({{counts.not_available}})
+          </b-radio-button>
           <b-radio-button v-model="dlState" native-value="downloaded" size="is-small">
             {{$t("Downloaded")}} ({{counts.downloaded}})
           </b-radio-button>
           <b-radio-button v-model="dlState" native-value="missing" size="is-small">
             {{$t("Not downloaded")}} ({{counts.not_downloaded}})
+          </b-radio-button>
+          <b-radio-button v-model="dlState" native-value="hidden" size="is-small">
+            {{$t("Hidden")}} ({{counts.hidden}})
           </b-radio-button>
         </div>
       </div>
@@ -94,18 +100,32 @@ export default {
           case 'any':
             this.$store.state.sceneList.filters.isAvailable = null
             this.$store.state.sceneList.filters.isAccessible = null
+            this.$store.state.sceneList.filters.isHidden = false
             break
           case 'available':
             this.$store.state.sceneList.filters.isAvailable = true
             this.$store.state.sceneList.filters.isAccessible = true
+            this.$store.state.sceneList.filters.isHidden = false
+            break
+          case 'notAvailable':
+            this.$store.state.sceneList.filters.isAvailable = true
+            this.$store.state.sceneList.filters.isAccessible = false
+            this.$store.state.sceneList.filters.isHidden = false
             break
           case 'downloaded':
             this.$store.state.sceneList.filters.isAvailable = true
             this.$store.state.sceneList.filters.isAccessible = null
+            this.$store.state.sceneList.filters.isHidden = false
             break
           case 'missing':
             this.$store.state.sceneList.filters.isAvailable = false
             this.$store.state.sceneList.filters.isAccessible = null
+            this.$store.state.sceneList.filters.isHidden = false
+            break
+          case 'hidden':
+            this.$store.state.sceneList.filters.isAvailable = null
+            this.$store.state.sceneList.filters.isAccessible = null
+            this.$store.state.sceneList.filters.isHidden = true
             break
         }
 

@@ -104,6 +104,18 @@
         <b-taginput v-model="cast" autocomplete :data="filteredCast" @typing="getFilteredCast">
           <template slot-scope="props">{{ props.option }}</template>
           <template slot="empty">No matching cast</template>
+          <template #selected="props">
+              <b-tag v-for="(tag, index) in props.tags"
+                :type="tag.charAt(0)=='!' ? 'is-danger': (tag.charAt(0)=='&' ? 'is-success' : '')"
+                :key="tag+index" :tabstop="false" closable  @close="cast=cast.filter(e => e !== tag)" @click="toggle3way(tag,index,'cast')">
+                <b-tooltip position="is-right" :delay="200"
+                  :label="tag.charAt(0)=='!' ? 'Exclude ' + removeConditionPrefix(tag) : tag.charAt(0)=='&' ? 'Must Have ' + removeConditionPrefix(tag) : 'Include ' + removeConditionPrefix(tag)">
+                  <b-icon pack="mdi" v-if="tag.charAt(0)=='!'" icon="minus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                  <b-icon pack="mdi" v-if="tag.charAt(0)=='&'" icon="plus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                  {{removeConditionPrefix(tag)}}
+                </b-tooltip>
+              </b-tag>
+          </template>
         </b-taginput>
       </b-field>
 
@@ -111,6 +123,17 @@
         <b-taginput v-model="sites" autocomplete :data="filteredSites" @typing="getFilteredSites">
           <template slot-scope="props">{{ props.option }}</template>
           <template slot="empty">No matching sites</template>
+          <template #selected="props">
+            <b-tag v-for="(tag, index) in props.tags"
+              :type="tag.charAt(0)=='!' ? 'is-danger': (tag.charAt(0)=='&' ? 'is-success' : '')"
+              :key="tag+index" :tabstop="false" closable  @close="sites=sites.filter(e => e !== tag)" @click="toggle2Way(tag,index,'sites')">
+                <b-tooltip position="is-right" :delay="200"
+                  :label="tag.charAt(0)=='!' ? 'Exclude ' + removeConditionPrefix(tag) : 'Include ' + removeConditionPrefix(tag)">
+                  <b-icon pack="mdi" v-if="tag.charAt(0)=='!'" icon="minus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                  {{removeConditionPrefix(tag)}}
+                </b-tooltip>
+            </b-tag>
+          </template>
         </b-taginput>
       </b-field>
 
@@ -118,6 +141,18 @@
         <b-taginput v-model="tags" autocomplete :data="filteredTags" @typing="getFilteredTags">
           <template slot-scope="props">{{ props.option }}</template>
           <template slot="empty">No matching tags</template>
+          <template #selected="props">
+            <b-tag v-for="(tag, index) in props.tags"
+              :type="tag.charAt(0)=='!' ? 'is-danger': (tag.charAt(0)=='&' ? 'is-success' : '')"
+              :key="tag+index" :tabstop="false" closable  @close="tags=tags.filter(e => e !== tag)" @click="toggle3way(tag,index,'tags')">
+              <b-tooltip position="is-right" :delay="200"
+                  :label="tag.charAt(0)=='!' ? 'Exclude ' + removeConditionPrefix(tag) : tag.charAt(0)=='&' ? 'Must Have ' + removeConditionPrefix(tag) : 'Include ' + removeConditionPrefix(tag)">
+                <b-icon pack="mdi" v-if="tag.charAt(0)=='!'" icon="minus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                <b-icon pack="mdi" v-if="tag.charAt(0)=='&'" icon="plus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                {{removeConditionPrefix(tag)}}
+              </b-tooltip>
+            </b-tag>
+          </template>
         </b-taginput>
       </b-field>
 
@@ -132,28 +167,84 @@
         <b-taginput v-model="cuepoint" allow-new>
           <template slot-scope="props">{{ props.option }}</template>
           <template slot="empty">No matching cuepoints</template>
+          <template #selected="props">
+            <b-tag v-for="(tag, index) in props.tags"
+              :type="tag.charAt(0)=='!' ? 'is-danger': (tag.charAt(0)=='&' ? 'is-success' : '')"
+              :key="tag+index" :tabstop="false" closable  @close="cuepoint=cuepoint.filter(e => e !== tag)" @click="toggle3way(tag,index,'cuepoints')">
+              <b-tooltip position="is-right" :delay="200"
+                  :label="tag.charAt(0)=='!' ? 'Exclude ' + removeConditionPrefix(tag) : tag.charAt(0)=='&' ? 'Must Have ' + removeConditionPrefix(tag) : 'Include ' + removeConditionPrefix(tag)">
+                <b-icon pack="mdi" v-if="tag.charAt(0)=='!'" icon="minus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                <b-icon pack="mdi" v-if="tag.charAt(0)=='&'" icon="plus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                {{removeConditionPrefix(tag)}}
+              </b-tooltip>
+            </b-tag>
+          </template>
         </b-taginput>
       </b-field>
 
+      <b-tooltip position="is-top" label="Allows searching a variety of attributes such as: scenes in Watchlists, Favourites, Has Video, Scripts or HSP Files, Ratings, Cuepoint Types, Number of Cast, FOV, Projection, Resolution, Frame Rate and Codecs" multilined :delay="1000" style="width:100%">
+        <b-field label="Attributes" label-position="on-border" class="field-extra">
+          <b-taginput v-model="attributes" autocomplete :data="filteredAttributes" @typing="getFilteredAttributes">
+            <template slot-scope="props">{{ props.option }}</template>
+            <template slot="empty">No matching attributes</template>
+            <template #selected="props">
+              <b-tag v-for="(tag, index) in props.tags"
+                :type="tag.charAt(0)=='!' ? 'is-danger': (tag.charAt(0)=='&' ? 'is-success' : '')"
+                :key="tag+index" :tabstop="false" closable  @close="attributes=attributes.filter(e => e !== tag)" @click="toggle3way(tag,index,'attributes')">
+                  <b-icon pack="mdi" v-if="tag.charAt(0)=='!'" icon="minus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                  <b-icon pack="mdi" v-if="tag.charAt(0)=='&'" icon="plus-circle-outline" size="is-small" class="tagicon"></b-icon>
+                  {{removeConditionPrefix(tag)}}
+              </b-tag>
+            </template>
+          </b-taginput>
+        </b-field>
+      </b-tooltip>
     </div>
+    <div class="is-divider" data-content="Actor Also Known As groups"></div>
+    <b-field>
+      <b-tooltip position="is-right" label="New Aka Group. Select 2 or more actors in the Cast filter" multilined :delay="200">
+        <button class="button is-small is-outlined" @click="createAkaGroup" :disabled="disableNewAkaGroup">
+          <b-icon pack="mdi" icon="account-multiple-plus-outline"></b-icon>
+        </button>
+      </b-tooltip>
+      <b-tooltip position="is-right" label="Select the Aka Group to delete in the Cast Filter" multilined :delay="200">
+        <button class="button is-small is-outlined" @click="deleteAkaGroup" :disabled="disableDeleteAkaGroup">
+          <b-icon pack="mdi" icon="delete-outline"></b-icon>
+        </button>
+      </b-tooltip>
+      <b-tooltip position="is-bottom" label="Add Cast to Aka Group. Select the Aka group and Actors to add in the Cast Filter" multilined :delay="200">
+        <button class="button is-small is-outlined" @click="addToAkaGroup" :disabled="disableAddToAkaGroup">
+          <b-icon pack="mdi" icon="account-plus-outline"></b-icon>
+        </button>
+      </b-tooltip>
+      <b-tooltip position="is-bottom" label="Remove Cast from Aka Group. Select the Aka group and Actors to remove in the Cast Filter" multilined :delay="200">
+        <button class="button is-small is-outlined" @click="removeFromAkaGroup" :disabled="disableRemoveFromAkaGroup">
+          <b-icon pack="mdi" icon="account-minus-outline"></b-icon>
+        </button>
+      </b-tooltip>
+
+    </b-field>
   </div>
 </template>
 
 <script>
 import SavedSearch from './SavedSearch'
+import ky from 'ky'
 
 export default {
   name: 'Filters',
   components: { SavedSearch },
   mounted () {
     this.$store.dispatch('sceneList/filters')
+    this.fetchFilters()
   },
   data () {
     return {
       filteredCast: [],
       filteredSites: [],
       filteredTags: [],
-      filteredExTags: []
+      filteredExTags: [],
+      filteredAttributes: [],
     }
   },
   methods: {
@@ -168,19 +259,25 @@ export default {
     getFilteredCast (text) {
       this.filteredCast = this.filters.cast.filter(option => (
         option.toString().toLowerCase().indexOf(text.toLowerCase()) >= 0 &&
-        !this.cast.some(entry => entry.toString() === option.toString())
+        !this.cast.some(entry => this.removeConditionPrefix(entry.toString()) === option.toString())
       ))
     },
     getFilteredSites (text) {
       this.filteredSites = this.filters.sites.filter(option => (
         option.toString().toLowerCase().indexOf(text.toLowerCase()) >= 0 &&
-        !this.sites.some(entry => entry.toString() === option.toString())
+        !this.sites.some(entry => this.removeConditionPrefix(entry.toString()) === option.toString())
       ))
     },
     getFilteredTags (text) {
       this.filteredTags = this.filters.tags.filter(option => (
         option.toString().toLowerCase().indexOf(text.toLowerCase()) >= 0 &&
-        !this.tags.some(entry => entry.toString() === option.toString())
+        !this.tags.some(entry => this.removeConditionPrefix(entry.toString()) === option.toString())
+      ))
+    },
+    getFilteredAttributes (text) {
+      this.filteredAttributes = this.filters.attributes.filter(option => (
+        option.toString().toLowerCase().indexOf(text.toLowerCase()) >= 0 &&
+        !this.tags.some(entry => this.removeConditionPrefix(entry.toString()) === option.toString())
       ))
     },
     getFilteredExTags (text) {
@@ -195,7 +292,130 @@ export default {
     },
     clearVolume () {
       this.$store.state.sceneList.filters.volume = 0
+      this.$store.dispatch('sceneList/filters')
       this.reloadList()
+    },
+    createAkaGroup () {
+      this.$store.state.sceneList.isLoading = true
+      ky.post('/api/aka/create', {json: {actorList: this.cast}}).json().then(data => {
+        this.cast.push(data.akas.aka_actor.name)
+        this.$store.dispatch('sceneList/filters')
+        this.reloadList()
+        if (data.status != '') {
+          this.$buefy.toast.open({message: `Warning:  ${data.status}`, type: 'is-warning', duration: 5000})
+        }
+        this.$store.state.sceneList.isLoading = false
+      })
+    },
+    deleteAkaGroup () {
+      this.$store.state.sceneList.isLoading = true
+      ky.post('/api/aka/delete', {json: {name: this.cast[0]}}).json().then(data => {
+        this.cast = []
+        this.$store.dispatch('sceneList/filters')
+        this.reloadList()
+        this.$store.state.sceneList.isLoading = false
+      })
+    },
+    addToAkaGroup () {
+      this.$store.state.sceneList.isLoading = true
+      ky.post('/api/aka/add', {json: {actorList: this.cast}}).json().then(data => {
+        // delete old aka & add new name
+        this.cast = this.cast.filter(e => !e.startsWith("aka:"))
+        this.cast.push(data.akas.aka_actor.name)
+        this.$store.dispatch('sceneList/filters')
+        this.reloadList()
+        if (data.status != '') {
+          this.$buefy.toast.open({message: `Warning:  ${data.status}`, type: 'is-warning', duration: 5000})
+        }
+        this.$store.state.sceneList.isLoading = false
+      })
+
+    },
+    removeFromAkaGroup () {
+      this.$store.state.sceneList.isLoading = true
+      ky.post('/api/aka/remove', {json: {actorList: this.cast}}).json().then(data => {
+        // delete old aka & add new name
+        this.cast = this.cast.filter(e => !e.startsWith("aka:"))
+        this.cast.push(data.akas.aka_actor.name)
+        this.$store.dispatch('sceneList/filters')
+        this.reloadList()
+        if (data.status != '') {
+          this.$buefy.toast.open({message: `Warning:  ${data.status}`, type: 'is-warning', duration: 5000})
+        }
+        this.$store.state.sceneList.isLoading = false
+      })
+    },
+    toggle3way (text, idx, list) {
+      let tags = []
+      switch (list) {
+        case 'cast':
+          tags=this.cast
+          break
+        case 'tags':
+          tags=this.tags
+          break
+        case 'cuepoints':
+          tags=this.cuepoint
+          break
+        case 'attributes':
+          tags=this.attributes
+          break
+      }
+      switch(tags[idx].charAt(0)) {
+        case '!':
+          tags[idx]=this.removeConditionPrefix(tags[idx])
+          break
+        case '&':
+          tags[idx]='!' + this.removeConditionPrefix(tags[idx])
+        break
+        default:
+        tags[idx]='&'+text
+      }
+      switch (list) {
+        case 'cast':
+          this.cast=tags
+          break
+        case 'tags':
+          this.tags=tags
+          break
+        case 'cuepoints':
+          this.cuepoint=tags
+          break
+        case 'attributes':
+          this.attributes=tags
+          break
+      }
+    },
+    toggle2Way (text, idx, list) {
+      let tags = []
+      switch (list) {
+        case 'sites':
+          tags=this.sites
+      }
+      switch(tags[idx].charAt(0)) {
+        case '!':
+          tags[idx]=this.removeConditionPrefix(tags[idx])
+          break
+        default:
+        tags[idx]='!'+text
+      }
+      switch (list) {
+        case 'sites':
+          this.sites=tags
+          break
+      }
+    },
+    removeConditionPrefix(txt) {
+      if (txt.charAt(0)=='!' || txt.charAt(0)=='&') {
+        return txt.substring(1)
+      }
+      return txt
+    },
+    async fetchFilters() {
+        this.filteredAttributes=['Loading attributes']
+        ky.get('/api/scene/filters').json().then(data => {
+          this.filteredAttributes=data.attributes
+      })
     }
   },
   computed: {
@@ -254,6 +474,7 @@ export default {
       set (value) {
         this.$store.state.sceneList.filters.tags = value
         this.reloadList()
+        console.log('reloaded',value)
       }
     },
     excludedTags: {
@@ -274,6 +495,15 @@ export default {
         this.reloadList()
       }
     },
+    attributes: {
+      get () {
+        return this.$store.state.sceneList.filters.attributes
+      },
+      set (value) {
+        this.$store.state.sceneList.filters.attributes = value
+        this.reloadList()
+      }
+    },
     sort: {
       get () {
         return this.$store.state.sceneList.filters.sort
@@ -291,7 +521,67 @@ export default {
         this.$store.state.sceneList.filters.isWatched = value
         this.reloadList()
       }
-    }
+    },
+    disableNewAkaGroup() {
+      let akaCastCnt = 0
+      let actorCnt = 0
+
+      for (var i = 0; i < this.cast.length; i++) {
+        if (this.cast[i].startsWith("aka:")) {
+          akaCastCnt++
+        } else {
+          actorCnt++
+        }
+      }
+      // you can create a new group from a list of actors (more than one)
+      return akaCastCnt == 0 && actorCnt > 1 ? false : true
+    },
+    disableDeleteAkaGroup() {
+      let akaCastCnt = 0
+      let actorCnt = 0
+
+      for (var i = 0; i < this.cast.length; i++) {
+        if (this.cast[i].startsWith("aka:")) {
+          akaCastCnt++
+        } else {
+          actorCnt++
+        }
+      }
+
+      // you can only delete a group when it is the only thing selected
+      return akaCastCnt == 1 && actorCnt == 0 > 1 ? false : true
+    },
+    disableAddToAkaGroup() {
+      let akaCastCnt = 0
+      let actorCnt = 0
+
+      for (var i = 0; i < this.cast.length; i++) {
+        if (this.cast[i].startsWith("aka:")) {
+          akaCastCnt++
+        } else {
+          actorCnt++
+        }
+      }
+
+      // you can add to a group if you select one group and one or more actors
+      return akaCastCnt == 1 && actorCnt > 0 ? false : true
+    },
+    disableRemoveFromAkaGroup() {
+      let akaCastCnt = 0
+      let actorCnt = 0
+
+      for (var i = 0; i < this.cast.length; i++) {
+        if (this.cast[i].startsWith("aka:")) {
+          akaCastCnt++
+        } else {
+          actorCnt++
+        }
+      }
+
+      // you can remove from a group if you select one group and one or more actors
+      return akaCastCnt == 1 && actorCnt > 0 ? false : true
+
+    },
   }
 }
 </script>
@@ -309,5 +599,9 @@ export default {
 
 .field-extra {
   margin-bottom: 1.1em !important;
+}
+
+.tagicon {
+  margin-right: -0.2em !important;
 }
 </style>

@@ -20,7 +20,6 @@ import (
 	"github.com/koding/websocketproxy"
 	"github.com/peterbourgon/diskv"
 	"github.com/rs/cors"
-	"github.com/xbapps/xbvr/pkg/analytics"
 	"github.com/xbapps/xbvr/pkg/api"
 	"github.com/xbapps/xbvr/pkg/common"
 	"github.com/xbapps/xbvr/pkg/config"
@@ -55,14 +54,9 @@ func StartServer(version, commit, branch, date string) {
 
 	// First setup
 	migrations.Migrate()
-	analytics.GenerateID()
-	analytics.Event("app-start", nil)
 
 	// Remove old locks
-	models.RemoveLock("index")
-	models.RemoveLock("scrape")
-	models.RemoveLock("update-scenes")
-	models.RemoveLock("previews")
+	models.RemoveAllLocks()
 
 	go tasks.CheckDependencies()
 	models.CheckVolumes()
@@ -83,7 +77,9 @@ func StartServer(version, commit, branch, date string) {
 	restful.Add(api.ConfigResource{}.WebService())
 	restful.Add(api.FilesResource{}.WebService())
 	restful.Add(api.DeoVRResource{}.WebService())
+	restful.Add(api.HeresphereResource{}.WebService())
 	restful.Add(api.PlaylistResource{}.WebService())
+	restful.Add(api.AkaResource{}.WebService())
 
 	restConfig := restfulspec.Config{
 		WebServices: restful.RegisteredWebServices(),
@@ -114,6 +110,12 @@ func StartServer(version, commit, branch, date string) {
 						Description: "Endpoints for interfacing with DeoVR player",
 					},
 				},
+				{
+					TagProps: spec.TagProps{
+						Name:        "HereSphere",
+						Description: "Endpoints for interfacing with HereSphere player",
+					},
+				},
 			}
 		},
 	}
@@ -129,6 +131,8 @@ func StartServer(version, commit, branch, date string) {
 	r.PathPrefix("/img/").Handler(http.StripPrefix("/img", p))
 	hmp := NewHeatmapThumbnailProxy(p, diskCache(filepath.Join(common.AppDir, "heatmapthumbnailproxy")))
 	r.PathPrefix("/imghm/").Handler(http.StripPrefix("/imghm", hmp))
+	downloadhandler := DownloadHandler{}
+	r.PathPrefix("/download/").Handler(http.StripPrefix("/download/", downloadhandler))
 	r.SkipClean(true)
 
 	r.PathPrefix("/").Handler(http.DefaultServeMux)

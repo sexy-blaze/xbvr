@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"strings"
@@ -75,6 +76,12 @@ func VirtualTaboo(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out
 			sc.Tags = append(sc.Tags, strings.TrimSpace(e.Text))
 		})
 
+		// trailer details
+		sc.TrailerType = "load_json"
+		params := models.TrailerScrape{SceneUrl: `https://virtualtaboo.com/gizmo/videoinfo/` + sc.SiteID, RecordPath: "sources", ContentPath: "url", QualityPath: "title"}
+		strParma, _ := json.Marshal(params)
+		sc.TrailerSrc = string(strParma)
+
 		// Cast
 		e.ForEach(`div.video-detail .info a`, func(id int, e *colly.HTMLElement) {
 			sc.Cast = append(sc.Cast, strings.TrimSpace(e.Text))
@@ -126,5 +133,5 @@ func VirtualTaboo(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out
 }
 
 func init() {
-	registerScraper("virtualtaboo", "VirtualTaboo", "https://pbs.twimg.com/profile_images/978642233011384320/lqF0Rl7K_200x200.jpg", VirtualTaboo)
+	registerScraper("virtualtaboo", "VirtualTaboo", "https://static-src.virtualtaboo.com/img/mobile-logo.png", VirtualTaboo)
 }

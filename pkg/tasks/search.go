@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/analysis/analyzer/simple"
 	"github.com/blevesearch/bleve/index/scorch"
 	"github.com/sirupsen/logrus"
 	"github.com/xbapps/xbvr/pkg/common"
@@ -17,7 +18,11 @@ type Index struct {
 }
 
 type SceneIndexed struct {
-	Fulltext string `json:"fulltext"`
+	Description string `json:"description"`
+	Title       string `json:"title"`
+	Cast        string `json:"cast"`
+	Site        string `json:"site"`
+	Id          string `json:"id"`
 }
 
 func NewIndex(name string) (*Index, error) {
@@ -25,7 +30,19 @@ func NewIndex(name string) (*Index, error) {
 
 	path := filepath.Join(common.IndexDirV2, name)
 
+	// the simple analyzer is more approriate for the title and cast
+	// note this does not effect search unless the query includes cast: or title:
+	titleFieldMapping := bleve.NewTextFieldMapping()
+	titleFieldMapping.Analyzer = simple.Name
+	castFieldMapping := bleve.NewTextFieldMapping()
+	castFieldMapping.Analyzer = simple.Name
+	sceneMapping := bleve.NewDocumentMapping()
+	sceneMapping.AddFieldMappingsAt("title", titleFieldMapping)
+	sceneMapping.AddFieldMappingsAt("cast", castFieldMapping)
+
 	mapping := bleve.NewIndexMapping()
+	mapping.AddDocumentMapping("_default", sceneMapping)
+
 	idx, err := bleve.NewUsing(path, mapping, scorch.Name, scorch.Name, nil)
 	if err != nil && err == bleve.ErrorIndexPathExists {
 		idx, err = bleve.Open(path)
@@ -55,7 +72,11 @@ func (i *Index) PutScene(scene models.Scene) error {
 	}
 
 	si := SceneIndexed{
-		Fulltext: fmt.Sprintf("%v %v %v %v %v %v", scene.SceneID, scene.Title, scene.Site, scene.Synopsis, cast, castConcat),
+		Title:       fmt.Sprintf("%v", scene.Title),
+		Description: fmt.Sprintf("%v", scene.Synopsis),
+		Cast:        fmt.Sprintf("%v %v", cast, castConcat),
+		Site:        fmt.Sprintf("%v", scene.Site),
+		Id:          fmt.Sprintf("%v", scene.SceneID),
 	}
 	if err := i.Bleve.Index(scene.SceneID, si); err != nil {
 		return err
@@ -67,6 +88,7 @@ func (i *Index) PutScene(scene models.Scene) error {
 func SearchIndex() {
 	if !models.CheckLock("index") {
 		models.CreateLock("index")
+		defer models.RemoveLock("index")
 
 		tlog := log.WithFields(logrus.Fields{"task": "scrape"})
 
@@ -112,7 +134,71 @@ func SearchIndex() {
 		idx.Bleve.Close()
 
 		tlog.Infof("Search index built!")
-
-		models.RemoveLock("index")
 	}
+}
+
+/**
+ * Update search index for all of the specified scenes.
+ */
+func IndexScenes(scenes *[]models.Scene) {
+	if !models.CheckLock("index") {
+		models.CreateLock("index")
+		defer models.RemoveLock("index")
+
+		tlog := log.WithFields(logrus.Fields{"task": "scrape"})
+
+		idx, err := NewIndex("scenes")
+		if err != nil {
+			log.Error(err)
+			models.RemoveLock("index")
+			return
+		}
+
+		tlog.Infof("Adding scraped scenes to search index...")
+
+		total := 0
+
+		for i := range *scenes {
+			scene := (*scenes)[i]
+			if idx.Exist(scene.SceneID) {
+				// Remove old index, as data may have been updated
+				idx.Bleve.Delete(scene.SceneID)
+			}
+
+			err := idx.PutScene(scene)
+			if err != nil {
+				log.Error(err)
+			} else {
+				// log.Debugln("Indexed " + scene.SceneID)
+				total += 1
+			}
+		}
+
+		idx.Bleve.Close()
+
+		tlog.Infof("Indexed %v scenes", total)
+	}
+}
+
+/**
+ * Update search index for all of the specified scrapedScenes.
+ * This method will first read the scraped scenes from the DB, after
+ * which it calls IndexScenes.
+ */
+func IndexScrapedScenes(scrapedScenes *[]models.ScrapedScene) {
+	// Map scrapedScenes to Scenes
+	var scenes []models.Scene
+	for i := range *scrapedScenes {
+		var scene models.Scene
+		scrapedScene := (*scrapedScenes)[i]
+		// Read scraped scene from db, as we don't want to index it
+		// if it doesn't exist in there
+		err := scene.GetIfExist(scrapedScene.SceneID)
+		if err == nil {
+			scenes = append(scenes, scene)
+		}
+	}
+
+	// Now update search index
+	IndexScenes(&scenes)
 }

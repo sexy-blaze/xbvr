@@ -1,6 +1,7 @@
 package scrape
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,15 +99,22 @@ func VRBangersSite(wg *sync.WaitGroup, updateSite bool, knownScenes []string, ou
 		// Gallery - https://content.vrbangers.com/uploads/2021/08/611b4e0ca5c54351494706_XL.jpg
 		gallerytmp := gjson.Get(JsonMetadata, "data.item.galleryImages.#.previews.#(sizeAlias==XL).permalink")
 		for _, v := range gallerytmp.Array() {
-			sc.Gallery = append(sc.Gallery, contentURL+v.Str)
+			sc.Gallery = append(sc.Gallery, strings.Replace(contentURL+v.Str, ".com//", ".com/", 1))
 		}
 
 		// Synopsis
 		sc.Synopsis = strings.TrimSpace(strings.Replace(e.ChildText(`div.video-item__description div.short-text`), `arrow_drop_up`, ``, -1))
 
 		// Tags
-		e.ForEach(`div.video-item__tags a`, func(id int, e *colly.HTMLElement) {
-			sc.Tags = append(sc.Tags, e.Text)
+		ignoreTags := []string{"180 vr", "6k vr porn", "8k vr porn", "4k vr porn"}
+		e.ForEach(`a.video-item__category`, func(id int, e *colly.HTMLElement) {
+			tag := strings.ToLower(strings.TrimSpace(e.Text))
+			for _, v := range ignoreTags {
+				if tag == v {
+					return
+				}
+			}
+			sc.Tags = append(sc.Tags, tag)
 		})
 		e.ForEach(`div.video-item__info span.video-item__position-title`, func(id int, e *colly.HTMLElement) {
 			sc.Tags = append(sc.Tags, strings.TrimSpace(e.Text))
@@ -114,6 +122,12 @@ func VRBangersSite(wg *sync.WaitGroup, updateSite bool, knownScenes []string, ou
 		if scraperID == "vrbgay" {
 			sc.Tags = append(sc.Tags, "Gay")
 		}
+
+		// setup  trailers
+		sc.TrailerType = "load_json"
+		params := models.TrailerScrape{SceneUrl: "https://content." + sc.Site + ".com/api/content/v1/videos/" + content_id, RecordPath: "data.item.videoPlayerSources.trailer", ContentPath: "src", QualityPath: "quality"}
+		strParma, _ := json.Marshal(params)
+		sc.TrailerSrc = string(strParma)
 
 		// Cast
 		e.ForEach(`div.video-item__info-starring div.ellipsis a`, func(id int, e *colly.HTMLElement) {
@@ -138,7 +152,7 @@ func VRBangersSite(wg *sync.WaitGroup, updateSite bool, knownScenes []string, ou
 		siteCollector.Visit(pageURL)
 	})
 
-	siteCollector.Visit(URL + "videos/?sort=latest&bonus-video=1")
+	siteCollector.Visit(URL + "videos/?sort=latest")
 
 	if updateSite {
 		updateSiteLastUpdate(scraperID)

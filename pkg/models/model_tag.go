@@ -8,11 +8,11 @@ import (
 )
 
 type Tag struct {
-	ID     uint    `gorm:"primary_key" json:"id"`
-	Scenes []Scene `gorm:"many2many:scene_tags;" json:"scenes"`
-	Name   string  `gorm:"index" json:"name"`
-	Clean  string  `gorm:"index" json:"clean"`
-	Count  int     `json:"count"`
+	ID     uint    `gorm:"primary_key" json:"id" xbvrbackup:"-"`
+	Scenes []Scene `gorm:"many2many:scene_tags;" json:"scenes" xbvrbackup:"-"`
+	Name   string  `gorm:"index" json:"name" xbvrbackup:"name"`
+	Clean  string  `gorm:"index" json:"clean" xbvrbackup:"-"`
+	Count  int     `json:"count" xbvrbackup:"-"`
 }
 
 func (t *Tag) Save() error {
@@ -311,4 +311,36 @@ func ConvertTag(t string) string {
 	}
 
 	return t
+}
+
+func (i *Tag) CountTags() {
+	db, _ := GetDB()
+	defer db.Close()
+
+	var tags []Tag
+	db.Model(&Tag{}).Find(&tags)
+
+	type CountResults struct {
+		ID          int
+		Cnt         int
+		Existingcnt int
+	}
+
+	var results []CountResults
+	db.Model(&Tag{}).
+		Select("tags.id, count as existingcnt, count(*) cnt").
+		Group("tags.id").
+		Joins("join scene_tags on scene_tags.tag_id = tags.id").
+		Joins("join scenes on scenes.id=scene_tags.scene_id and scenes.deleted_at is null").
+		Scan(&results)
+
+	for i := range results {
+		var tag Tag
+		if results[i].Cnt != results[i].Existingcnt {
+			db.First(&tag, results[i].ID)
+			tag.Count = results[i].Cnt
+			tag.Save()
+		}
+	}
+
 }
