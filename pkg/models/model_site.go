@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/avast/retry-go/v3"
+	"github.com/avast/retry-go/v4"
 )
 
 type Site struct {
@@ -13,6 +13,7 @@ type Site struct {
 	IsBuiltin  bool      `json:"is_builtin" xbvrbackup:"-"`
 	IsEnabled  bool      `json:"is_enabled" xbvrbackup:"is_enabled"`
 	LastUpdate time.Time `json:"last_update" xbvrbackup:"-"`
+	Subscribed bool      `json:"subscribed" xbvrbackup:"subscribed"`
 }
 
 func (i *Site) Save() error {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go/v3"
+	"github.com/avast/retry-go/v4"
 	"github.com/xbapps/xbvr/pkg/common"
 )
 

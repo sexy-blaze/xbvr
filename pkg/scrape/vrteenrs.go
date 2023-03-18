@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/v2"
 	"github.com/mozillazg/go-slugify"
 	"github.com/xbapps/xbvr/pkg/models"
 )
@@ -21,6 +21,7 @@ func VRTeenrs(wg *sync.WaitGroup, updateSite bool, knownScenes []string, out cha
 
 	sceneCollector.OnHTML(`.list_item`, func(e *colly.HTMLElement) {
 		sc := models.ScrapedScene{}
+		sc.ScraperID = scraperID
 		sc.SceneType = "VR"
 		sc.Studio = "International Media Company BV"
 		sc.Site = siteID

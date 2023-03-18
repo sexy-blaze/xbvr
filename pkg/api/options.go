@@ -11,8 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/emicklei/go-restful"
-	restfulspec "github.com/emicklei/go-restful-openapi"
+	restfulspec "github.com/emicklei/go-restful-openapi/v2"
+	"github.com/emicklei/go-restful/v3"
+	"github.com/go-resty/resty/v2"
 	"github.com/jinzhu/gorm"
 	"github.com/mcuadros/go-version"
 	"github.com/pkg/errors"
@@ -24,7 +25,6 @@ import (
 	"github.com/xbapps/xbvr/pkg/tasks"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
-	"gopkg.in/resty.v1"
 )
 
 type NewVolumeRequest struct {
@@ -40,15 +40,16 @@ type VersionCheckResponse struct {
 }
 
 type RequestSaveOptionsWeb struct {
-	TagSort          string `json:"tagSort"`
-	SceneWatchlist   bool   `json:"sceneWatchlist"`
-	SceneFavourite   bool   `json:"sceneFavourite"`
-	SceneWatched     bool   `json:"sceneWatched"`
-	SceneEdit        bool   `json:"sceneEdit"`
-	SceneCuepoint    bool   `json:"sceneCuepoint"`
-	ShowHspFile      bool   `json:"showHspFile"`
-	SceneTrailerlist bool   `json:"sceneTrailerlist"`
-	UpdateCheck      bool   `json:"updateCheck"`
+	TagSort           string `json:"tagSort"`
+	SceneWatchlist    bool   `json:"sceneWatchlist"`
+	SceneFavourite    bool   `json:"sceneFavourite"`
+	SceneWatched      bool   `json:"sceneWatched"`
+	SceneEdit         bool   `json:"sceneEdit"`
+	SceneCuepoint     bool   `json:"sceneCuepoint"`
+	ShowHspFile       bool   `json:"showHspFile"`
+	ShowSubtitlesFile bool   `json:"showSubtitlesFile"`
+	SceneTrailerlist  bool   `json:"sceneTrailerlist"`
+	UpdateCheck       bool   `json:"updateCheck"`
 }
 
 type RequestSaveOptionsDLNA struct {
@@ -151,6 +152,9 @@ func (i ConfigResource) WebService() *restful.WebService {
 	ws.Route(ws.PUT("/sites/{site}").To(i.toggleSite).
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
+	ws.Route(ws.PUT("/sites/subsrcibed/{site}").To(i.toggleSubscribed).
+		Metadata(restfulspec.KeyOpenAPITags, tags))
+
 	ws.Route(ws.POST("/scraper/force-site-update").To(i.forceSiteUpdate).
 		Metadata(restfulspec.KeyOpenAPITags, tags))
 
@@ -209,7 +213,7 @@ func (i ConfigResource) versionCheck(req *restful.Request, resp *restful.Respons
 	out := VersionCheckResponse{LatestVersion: common.CurrentVersion, CurrentVersion: common.CurrentVersion, UpdateNotify: false}
 
 	if config.Config.Web.UpdateCheck && common.CurrentVersion != "CURRENT" {
-		r, err := resty.R().
+		r, err := resty.New().R().
 			SetHeader("User-Agent", "XBVR/"+common.CurrentVersion).
 			SetHeader("Accept", "application/vnd.github.v3+json").
 			Get("https://api.github.com/repos/xbapps/xbvr/releases/latest")
@@ -245,6 +249,13 @@ func (i ConfigResource) listSites(req *restful.Request, resp *restful.Response) 
 }
 
 func (i ConfigResource) toggleSite(req *restful.Request, resp *restful.Response) {
+	i.toggleSiteField(req, resp, "IsEnabled")
+}
+func (i ConfigResource) toggleSubscribed(req *restful.Request, resp *restful.Response) {
+	i.toggleSiteField(req, resp, "Subscribed")
+}
+
+func (i ConfigResource) toggleSiteField(req *restful.Request, resp *restful.Response, field string) {
 	db, _ := models.GetDB()
 	defer db.Close()
 
@@ -259,7 +270,13 @@ func (i ConfigResource) toggleSite(req *restful.Request, resp *restful.Response)
 		log.Error(err)
 		return
 	}
-	site.IsEnabled = !site.IsEnabled
+	switch field {
+	case "IsEnabled":
+		site.IsEnabled = !site.IsEnabled
+	case "Subscribed":
+		site.Subscribed = !site.Subscribed
+		log.Infof("Toggling %s %v", id, site.Subscribed)
+	}
 	site.Save()
 
 	var sites []models.Site
@@ -270,6 +287,9 @@ func (i ConfigResource) toggleSite(req *restful.Request, resp *restful.Response)
 		db.Order("name COLLATE NOCASE asc").Find(&sites)
 	}
 
+	if field == "Subscribed" {
+		db.Model(&models.Scene{}).Where("scraper_id = ?", site.ID).Update("is_subscribed", site.Subscribed)
+	}
 	resp.WriteHeaderAndEntity(http.StatusOK, sites)
 }
 
@@ -288,6 +308,7 @@ func (i ConfigResource) saveOptionsWeb(req *restful.Request, resp *restful.Respo
 	config.Config.Web.SceneEdit = r.SceneEdit
 	config.Config.Web.SceneCuepoint = r.SceneCuepoint
 	config.Config.Web.ShowHspFile = r.ShowHspFile
+	config.Config.Web.ShowSubtitlesFile = r.ShowSubtitlesFile
 	config.Config.Web.SceneTrailerlist = r.SceneTrailerlist
 	config.Config.Web.UpdateCheck = r.UpdateCheck
 	config.SaveConfig()
